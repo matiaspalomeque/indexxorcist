@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Frontend build output
+dist/
+
+# Rust build output
+src-tauri/target/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Auto-generated bindings (tauri-specta)
+src/bindings.ts
+
+# TypeScript build cache
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+
+# macOS
+.DS_Store
+**/.DS_Store
+._*
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
