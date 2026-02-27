@@ -7,26 +7,29 @@ import type {
   IndexCompletePayload,
   IndexDetail,
   IndexFoundPayload,
-  IndexInfo,
   MaintenanceFinishedPayload,
   MaintenanceSummary,
   RunState,
   ServerProfile,
 } from "../types";
 
-export interface ProfileRun {
+interface DatabaseCardDataInternal extends DatabaseCardData {
+  indexLookup: Record<string, number>;
+}
+
+interface ProfileRun {
   profileId: string;
   profileName: string;
   profileServer: string;
   runState: RunState;
-  databases: DatabaseCardData[];
+  databases: DatabaseCardDataInternal[];
+  dbLookup: Record<string, number>;
   currentDbIndex: number;
   totalDbs: number;
   summary: MaintenanceSummary | null;
   startedAtMs: number;
   isParallel: boolean;
 }
-
 
 interface MaintenanceState {
   byProfile: Record<string, ProfileRun>;
@@ -44,11 +47,16 @@ interface MaintenanceState {
   handleFinished: (payload: MaintenanceFinishedPayload) => void;
 }
 
-function makeEmptyCard(name: string): DatabaseCardData {
+function indexKey(schema: string, table: string, index: string): string {
+  return `${schema}\u0000${table}\u0000${index}`;
+}
+
+function makeEmptyCard(name: string): DatabaseCardDataInternal {
   return {
     name,
     state: "queued",
     indexes: [],
+    indexLookup: {},
     indexes_processed: 0,
     indexes_rebuilt: 0,
     indexes_reorganized: 0,
@@ -65,6 +73,7 @@ function createRun(profileId: string): ProfileRun {
     profileServer: "",
     runState: "idle",
     databases: [],
+    dbLookup: {},
     currentDbIndex: 0,
     totalDbs: 0,
     summary: null,
@@ -77,31 +86,90 @@ function ensureRun(byProfile: Record<string, ProfileRun>, profileId: string): Pr
   return byProfile[profileId] ?? createRun(profileId);
 }
 
-function updateDb(
-  databases: DatabaseCardData[],
-  name: string,
-  updater: (db: DatabaseCardData) => DatabaseCardData
-): DatabaseCardData[] {
-  const found = databases.some((db) => db.name === name);
-  if (!found) {
-    return [...databases, updater(makeEmptyCard(name))];
-  }
-
-  return databases.map((db) => (db.name === name ? updater(db) : db));
+function updateAt<T>(items: T[], idx: number, next: T): T[] {
+  const cloned = items.slice();
+  cloned[idx] = next;
+  return cloned;
 }
 
-function updateIndex(
-  indexes: IndexDetail[],
+function ensureDb(
+  run: ProfileRun,
+  name: string,
+): { run: ProfileRun; db: DatabaseCardDataInternal; dbIdx: number } {
+  const existingIdx = run.dbLookup[name];
+  if (existingIdx != null) {
+    return { run, db: run.databases[existingIdx], dbIdx: existingIdx };
+  }
+
+  const dbIdx = run.databases.length;
+  const db = makeEmptyCard(name);
+  const nextRun: ProfileRun = {
+    ...run,
+    databases: [...run.databases, db],
+    dbLookup: { ...run.dbLookup, [name]: dbIdx },
+  };
+
+  return { run: nextRun, db, dbIdx };
+}
+
+function replaceDb(run: ProfileRun, dbIdx: number, nextDb: DatabaseCardDataInternal): ProfileRun {
+  if (run.databases[dbIdx] === nextDb) {
+    return run;
+  }
+  return {
+    ...run,
+    databases: updateAt(run.databases, dbIdx, nextDb),
+  };
+}
+
+function withDb(
+  run: ProfileRun,
+  dbName: string,
+  updater: (db: DatabaseCardDataInternal) => DatabaseCardDataInternal
+): ProfileRun {
+  const ensured = ensureDb(run, dbName);
+  const nextDb = updater(ensured.db);
+  return replaceDb(ensured.run, ensured.dbIdx, nextDb);
+}
+
+function addIndexIfMissing(
+  db: DatabaseCardDataInternal,
+  detail: IndexDetail
+): DatabaseCardDataInternal {
+  const key = indexKey(detail.schema_name, detail.table_name, detail.index_name);
+  if (db.indexLookup[key] != null) {
+    return db;
+  }
+  const position = db.indexes.length;
+  return {
+    ...db,
+    indexes: [...db.indexes, detail],
+    indexLookup: { ...db.indexLookup, [key]: position },
+  };
+}
+
+function updateIndexIfFound(
+  db: DatabaseCardDataInternal,
   schema: string,
   table: string,
   index: string,
   updater: (idx: IndexDetail) => IndexDetail
-): IndexDetail[] {
-  return indexes.map((idx) =>
-    idx.schema_name === schema && idx.table_name === table && idx.index_name === index
-      ? updater(idx)
-      : idx
-  );
+): DatabaseCardDataInternal {
+  const idxPos = db.indexLookup[indexKey(schema, table, index)];
+  if (idxPos == null) {
+    return db;
+  }
+
+  const prev = db.indexes[idxPos];
+  const next = updater(prev);
+  if (next === prev) {
+    return db;
+  }
+
+  return {
+    ...db,
+    indexes: updateAt(db.indexes, idxPos, next),
+  };
 }
 
 function withRun(
@@ -119,7 +187,13 @@ function withRun(
 export const useMaintenanceStore = create<MaintenanceState>((set) => ({
   byProfile: {},
 
-  startRun: (profile, databaseNames, isParallel) =>
+  startRun: (profile, databaseNames, isParallel) => {
+    const databases = databaseNames.map(makeEmptyCard);
+    const dbLookup: Record<string, number> = {};
+    databases.forEach((db, idx) => {
+      dbLookup[db.name] = idx;
+    });
+
     set((state) => ({
       byProfile: {
         ...state.byProfile,
@@ -128,7 +202,8 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
           profileName: profile.name,
           profileServer: profile.server,
           runState: "running",
-          databases: databaseNames.map(makeEmptyCard),
+          databases,
+          dbLookup,
           currentDbIndex: 0,
           totalDbs: databaseNames.length,
           summary: null,
@@ -136,7 +211,8 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
           isParallel,
         },
       },
-    })),
+    }));
+  },
 
   setRunState: (profileId, runState) =>
     set((state) => ({
@@ -148,10 +224,9 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
 
   setDatabaseState: (profileId, name, dbState) =>
     set((state) => ({
-      byProfile: withRun(state.byProfile, profileId, (run) => ({
-        ...run,
-        databases: updateDb(run.databases, name, (db) => ({ ...db, state: dbState })),
-      })),
+      byProfile: withRun(state.byProfile, profileId, (run) =>
+        withDb(run, name, (db) => ({ ...db, state: dbState }))
+      ),
     })),
 
   resetProfile: (profileId) =>
@@ -162,64 +237,64 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
 
   handleDbStart: (payload) =>
     set((state) => ({
-      byProfile: withRun(state.byProfile, payload.profile_id, (run) => ({
-        ...run,
-        runState: "running",
-        currentDbIndex: payload.current,
-        totalDbs: payload.total,
-        databases: updateDb(run.databases, payload.db_name, (db) => ({
-          ...db,
-          state: "running",
-        })),
-      })),
+      byProfile: withRun(state.byProfile, payload.profile_id, (run) => {
+        const nextRun = withDb(run, payload.db_name, (db) => ({ ...db, state: "running" }));
+        return {
+          ...nextRun,
+          runState: "running",
+          currentDbIndex: payload.current,
+          totalDbs: payload.total,
+        };
+      }),
     })),
 
   handleIndexFound: (payload) =>
     set((state) => {
       const detail: IndexDetail = { ...payload.index, status: "pending" };
       return {
-        byProfile: withRun(state.byProfile, payload.profile_id, (run) => ({
-          ...run,
-          databases: updateDb(run.databases, payload.index.database_name, (db) => ({
-            ...db,
-            indexes: db.indexes.some(
-              (idx) =>
-                idx.schema_name === payload.index.schema_name &&
-                idx.table_name === payload.index.table_name &&
-                idx.index_name === payload.index.index_name
-            )
-              ? db.indexes
-              : [...db.indexes, detail],
-          })),
-        })),
+        byProfile: withRun(state.byProfile, payload.profile_id, (run) =>
+          withDb(run, payload.index.database_name, (db) => addIndexIfMissing(db, detail))
+        ),
       };
     }),
 
   handleIndexAction: (payload) =>
     set((state) => ({
-      byProfile: withRun(state.byProfile, payload.profile_id, (run) => ({
-        ...run,
-        databases: updateDb(run.databases, payload.db_name, (db) => ({
-          ...db,
-          indexes: updateIndex(
-            db.indexes,
+      byProfile: withRun(state.byProfile, payload.profile_id, (run) =>
+        withDb(run, payload.db_name, (db) =>
+          updateIndexIfFound(
+            db,
             payload.schema_name,
             payload.table_name,
             payload.index_name,
             (idx) => ({ ...idx, action: payload.action, status: "processing" })
-          ),
-        })),
-      })),
+          )
+        )
+      ),
     })),
 
   handleIndexComplete: (payload) =>
     set((state) => ({
-      byProfile: withRun(state.byProfile, payload.profile_id, (run) => ({
-        ...run,
-        databases: updateDb(run.databases, payload.db_name, (db) => {
+      byProfile: withRun(state.byProfile, payload.profile_id, (run) =>
+        withDb(run, payload.db_name, (db) => {
           const isSkip = payload.action === "SKIP";
+          const dbWithIndex = updateIndexIfFound(
+            db,
+            payload.schema_name,
+            payload.table_name,
+            payload.index_name,
+            (idx) => ({
+              ...idx,
+              status: isSkip ? "skipped" : payload.success ? "done" : "error",
+              action: payload.action,
+              duration_secs: payload.duration_secs,
+              retry_attempts: payload.retry_attempts,
+              error: payload.error,
+            })
+          );
+
           return {
-            ...db,
+            ...dbWithIndex,
             indexes_processed: db.indexes_processed + 1,
             indexes_rebuilt:
               payload.action === "REBUILD" && payload.success
@@ -230,30 +305,15 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
                 ? db.indexes_reorganized + 1
                 : db.indexes_reorganized,
             indexes_skipped: isSkip ? db.indexes_skipped + 1 : db.indexes_skipped,
-            indexes: updateIndex(
-              db.indexes,
-              payload.schema_name,
-              payload.table_name,
-              payload.index_name,
-              (idx) => ({
-                ...idx,
-                status: isSkip ? "skipped" : payload.success ? "done" : "error",
-                action: payload.action,
-                duration_secs: payload.duration_secs,
-                retry_attempts: payload.retry_attempts,
-                error: payload.error,
-              })
-            ),
           };
-        }),
-      })),
+        })
+      ),
     })),
 
   handleDbComplete: (payload) =>
     set((state) => ({
-      byProfile: withRun(state.byProfile, payload.profile_id, (run) => ({
-        ...run,
-        databases: updateDb(run.databases, payload.result.database_name, (db) => ({
+      byProfile: withRun(state.byProfile, payload.profile_id, (run) =>
+        withDb(run, payload.result.database_name, (db) => ({
           ...db,
           state: payload.result.manually_skipped
             ? "skipped"
@@ -266,8 +326,8 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
           indexes_skipped: payload.result.indexes_skipped,
           duration_secs: payload.result.total_duration_secs,
           errors: payload.result.errors,
-        })),
-      })),
+        }))
+      ),
     })),
 
   handleFinished: (payload) =>

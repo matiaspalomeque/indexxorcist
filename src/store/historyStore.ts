@@ -6,7 +6,7 @@ interface HistoryState {
   records: RunRecord[];
   loading: boolean;
   error: string | null;
-  loadHistory: (profileId?: string) => Promise<void>;
+  loadHistory: (profileId?: string, limit?: number) => Promise<void>;
   clearHistory: (profileId?: string) => Promise<void>;
 }
 
@@ -15,10 +15,10 @@ export const useHistoryStore = create<HistoryState>((set) => ({
   loading: false,
   error: null,
 
-  loadHistory: async (profileId) => {
+  loadHistory: async (profileId, limit = 100) => {
     set({ loading: true, error: null });
     try {
-      const records = await api.getRunHistory(profileId);
+      const records = await api.getRunHistory(profileId, limit);
       set({ records });
     } catch (err) {
       set({ error: String(err) });

@@ -26,7 +26,7 @@ export function ProfileCard({ profile, onEdit }: Props) {
     setTestStatus("testing");
     setTestError("");
     try {
-      await api.testConnection(profile);
+      await api.testConnection(profile.id);
       setTestStatus("success");
     } catch (e) {
       setTestError(String(e));

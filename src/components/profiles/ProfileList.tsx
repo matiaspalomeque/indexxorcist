@@ -1,5 +1,5 @@
 import { Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useT } from "../../i18n";
 import { useProfileStore } from "../../store/profileStore";
 import { ProfileCard } from "./ProfileCard";
@@ -8,13 +8,9 @@ import type { ServerProfile } from "../../types";
 
 export function ProfileList() {
   const t = useT();
-  const { profiles, load } = useProfileStore();
+  const profiles = useProfileStore((s) => s.profiles);
   const [editing, setEditing] = useState<ServerProfile | null>(null);
   const [creating, setCreating] = useState(false);
-
-  useEffect(() => {
-    load();
-  }, []);
 
   return (
     <div className="p-4 lg:p-6">

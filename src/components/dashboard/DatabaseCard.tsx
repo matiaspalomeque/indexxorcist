@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { ProgressRing } from "./ProgressRing";
 import { IndexDetailDrawer } from "./IndexDetailDrawer";
 import { useT } from "../../i18n";
@@ -36,7 +36,7 @@ function fmt(n: number) {
   return n.toFixed(1);
 }
 
-export function DatabaseCard({ db }: Props) {
+function DatabaseCardComponent({ db }: Props) {
   const t = useT();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const totalIndexes = db.indexes.length;
@@ -96,3 +96,5 @@ export function DatabaseCard({ db }: Props) {
     </>
   );
 }
+
+export const DatabaseCard = memo(DatabaseCardComponent, (prev, next) => prev.db === next.db);

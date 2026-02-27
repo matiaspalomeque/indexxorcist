@@ -1,8 +1,10 @@
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useT } from "../../i18n";
 import { useHistoryStore } from "../../store/historyStore";
 import type { DatabaseResult, IndexResult, RunRecord } from "../../types";
+
+const INITIAL_HISTORY_LIMIT = 100;
 
 function formatDuration(secs: number): string {
   const h = Math.floor(secs / 3600);
@@ -125,7 +127,7 @@ export function HistoryView() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => {
-    void loadHistory();
+    void loadHistory(undefined, INITIAL_HISTORY_LIMIT);
   }, [loadHistory]);
 
   const handleClear = async () => {
@@ -213,9 +215,8 @@ export function HistoryView() {
                   const isExpanded = expandedId === r.id;
                   const hasDetails = r.database_results && r.database_results.length > 0;
                   return (
-                    <>
+                    <Fragment key={r.id}>
                       <tr
-                        key={r.id}
                         onClick={() => toggleExpand(r.id)}
                         className={`border-b border-gray-100 dark:border-gray-800/60 cursor-pointer transition-colors ${
                           isExpanded
@@ -256,7 +257,7 @@ export function HistoryView() {
                         </td>
                       </tr>
                       {isExpanded && <ExpandedDetail key={`detail-${r.id}`} record={r} t={t} />}
-                    </>
+                    </Fragment>
                   );
                 })}
               </tbody>

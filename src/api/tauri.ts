@@ -1,8 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
-  DatabaseResult,
   MaintenanceOptions,
-  MaintenanceSummary,
   RunRecord,
   ServerProfile,
 } from "../types";
@@ -16,17 +14,18 @@ export const saveServerProfile = (profile: ServerProfile): Promise<void> =>
 export const deleteServerProfile = (id: string): Promise<void> =>
   invoke("delete_server_profile", { id });
 
-export const testConnection = (profile: ServerProfile): Promise<void> =>
-  invoke("test_connection", { profile });
+// Credentials are loaded server-side — only the profile ID crosses the IPC boundary.
+export const testConnection = (profileId: string): Promise<void> =>
+  invoke("test_connection", { profileId });
 
-export const getDatabases = (profile: ServerProfile): Promise<string[]> =>
-  invoke("get_databases", { profile });
+export const getDatabases = (profileId: string): Promise<string[]> =>
+  invoke("get_databases", { profileId });
 
 export const runMaintenance = (
-  profile: ServerProfile,
+  profileId: string,
   databases: string[],
   options: MaintenanceOptions
-): Promise<void> => invoke("run_maintenance", { profile, databases, options });
+): Promise<void> => invoke("run_maintenance", { profileId, databases, options });
 
 export const pauseMaintenance = (profileId: string): Promise<void> =>
   invoke("pause_maintenance", { profileId });
