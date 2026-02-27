@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useT } from "../../i18n";
+import { useDialogA11y } from "../../hooks/useDialogA11y";
 import { useProfileStore } from "../../store/profileStore";
 import type { ServerProfile } from "../../types";
 
@@ -23,6 +24,8 @@ export function ProfileFormModal({ profile, onClose }: Props) {
   const t = useT();
   const { save } = useProfileStore();
   const isNew = !profile;
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogA11y(dialogRef, onClose);
 
   const [form, setForm] = useState<ServerProfile>(
     profile ?? { id: crypto.randomUUID(), name: "", ...DEFAULTS }
@@ -57,12 +60,23 @@ export function ProfileFormModal({ profile, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl w-full max-w-lg mx-4 shadow-2xl">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="profile-form-title"
+        tabIndex={-1}
+        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl w-full max-w-lg mx-4 shadow-2xl"
+      >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800">
-          <h2 className="font-semibold text-gray-900 dark:text-white">
+          <h2 id="profile-form-title" className="font-semibold text-gray-900 dark:text-white">
             {isNew ? t("profileForm.titleNew") : t("profileForm.titleEdit")}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-white">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-700 dark:hover:text-white"
+          >
             <X size={18} />
           </button>
         </div>
@@ -113,6 +127,11 @@ export function ProfileFormModal({ profile, onClose }: Props) {
                 onChange={(e) => set("password", e.target.value)}
                 className={INPUT_CLS}
               />
+              {!isNew && (
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-500">
+                  {t("profileForm.passwordHelpEdit")}
+                </p>
+              )}
             </Field>
           </div>
 

@@ -1,4 +1,6 @@
 import { X } from "lucide-react";
+import { useRef } from "react";
+import { useDialogA11y } from "../../hooks/useDialogA11y";
 import { useT } from "../../i18n";
 import type { DatabaseCardData, IndexDetail } from "../../types";
 
@@ -82,6 +84,8 @@ function IndexRow({ idx }: { idx: IndexDetail }) {
 
 export function IndexDetailDrawer({ db, onClose }: Props) {
   const t = useT();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogA11y(dialogRef, onClose);
   const headers = [
     t("drawer.colSchemaTable"),
     t("drawer.colIndex"),
@@ -95,16 +99,33 @@ export function IndexDetailDrawer({ db, onClose }: Props) {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-t-2xl w-full max-h-[70vh] flex flex-col shadow-2xl">
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="index-detail-title"
+        tabIndex={-1}
+        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-t-2xl w-full max-h-[70vh] flex flex-col shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
           <div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">{db.name}</h3>
+            <h3 id="index-detail-title" className="font-semibold text-gray-900 dark:text-white">
+              {db.name}
+            </h3>
             <p className="text-xs text-gray-700 dark:text-gray-400 mt-0.5">
               {t("drawer.indexesTotal", { count: db.indexes.length })}
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-white">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-700 dark:hover:text-white"
+          >
             <X size={18} />
           </button>
         </div>
