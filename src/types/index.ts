@@ -47,10 +47,6 @@ export const DEFAULT_OPTIONS: MaintenanceOptions = {
   max_parallel_databases: 4,
 };
 
-// Legacy alias kept for backwards-compat (no existing code should still reference it)
-export type GlobalSettings = MaintenanceOptions;
-export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = { ...DEFAULT_OPTIONS };
-
 export interface IndexInfo {
   database_name: string;
   schema_name: string;

@@ -1,17 +1,17 @@
 import { useT } from "../../i18n";
-import type { GlobalSettings } from "../../types";
+import type { MaintenanceOptions } from "../../types";
 
 interface Props {
-  settings: GlobalSettings;
-  onChange: <K extends keyof GlobalSettings>(
+  settings: MaintenanceOptions;
+  onChange: <K extends keyof MaintenanceOptions>(
     key: K,
-    value: GlobalSettings[K]
+    value: MaintenanceOptions[K]
   ) => void;
 }
 
 export function OptionsPanel({ settings, onChange }: Props) {
   const t = useT();
-  const set = <K extends keyof GlobalSettings>(key: K, value: GlobalSettings[K]) =>
+  const set = <K extends keyof MaintenanceOptions>(key: K, value: MaintenanceOptions[K]) =>
     onChange(key, value);
 
   return (

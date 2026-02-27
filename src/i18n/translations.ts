@@ -206,6 +206,13 @@ const en: Translations = {
   // Skip disabled in parallel mode
   "controls.skipDisabledParallel": "Skip is not available in parallel mode",
 
+  // Update banner
+  "update.label": "Update",
+  "update.available": "available",
+  "update.installButton": "Update & Restart",
+  "update.installing": "Installing…",
+  "update.dismiss": "Dismiss",
+
   // Sidebar history
   "sidebar.history": "History",
 
@@ -438,6 +445,13 @@ const esAR: Translations = {
 
   // Skip disabled in parallel mode
   "controls.skipDisabledParallel": "Omitir no está disponible en modo paralelo",
+
+  // Update banner
+  "update.label": "Actualización",
+  "update.available": "disponible",
+  "update.installButton": "Actualizar y reiniciar",
+  "update.installing": "Instalando…",
+  "update.dismiss": "Cerrar",
 
   // Sidebar history
   "sidebar.history": "Historial",

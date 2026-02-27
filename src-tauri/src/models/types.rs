@@ -66,10 +66,6 @@ pub struct ServerProfileOnDisk {
     pub username: String,
     pub encrypt: bool,
     pub trust_server_certificate: bool,
-    // Migration field: reads plaintext password written by the pre-keychain version.
-    // Never serialised back to disk (skip_serializing), defaults to None for new format.
-    #[serde(skip_serializing, default)]
-    pub password: Option<String>,
 }
 
 impl From<ServerProfile> for ServerProfileOnDisk {
@@ -83,7 +79,6 @@ impl From<ServerProfile> for ServerProfileOnDisk {
             username: p.username,
             encrypt: p.encrypt,
             trust_server_certificate: p.trust_server_certificate,
-            password: None,
         }
     }
 }
