@@ -21,7 +21,9 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
         );",
     )?;
 
-    // Migration for existing databases that lack the new column
+    // Per-column migration: each new column gets its own pragma_table_info check.
+    // If more columns are added in the future, consider replacing this with a
+    // schema_version table and sequential numbered migrations.
     let has_col: bool = conn
         .prepare("SELECT COUNT(*) FROM pragma_table_info('run_history') WHERE name='database_results'")?
         .query_row([], |row| row.get::<_, i64>(0))

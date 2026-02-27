@@ -59,11 +59,11 @@ export function DatabaseSelector() {
     !isRunActive;
 
   const loadDatabases = async () => {
-    if (!activeProfile || !activeProfileId) return;
+    if (!activeProfileId) return;
     setLoading(true);
     setError("");
     try {
-      const dbs = await api.getDatabases(activeProfile);
+      const dbs = await api.getDatabases(activeProfileId);
       setDatabasesForProfile(activeProfileId, dbs);
     } catch (e) {
       setError(String(e));
@@ -96,13 +96,13 @@ export function DatabaseSelector() {
   };
 
   const startMaintenance = async () => {
-    if (!activeProfile || selected.size === 0 || isRunActive) return;
+    if (!activeProfile || !activeProfileId || selected.size === 0 || isRunActive) return;
     const selectedDbs = databases.filter((d) => selected.has(d));
     setStarting(true);
     setError("");
     try {
       startRun(activeProfile, selectedDbs, settings.parallel_databases);
-      await api.runMaintenance(activeProfile, selectedDbs, settings);
+      await api.runMaintenance(activeProfileId, selectedDbs, settings);
       setView("dashboard");
     } catch (e) {
       resetProfileRun(activeProfile.id);

@@ -1,3 +1,4 @@
+use crate::commands::profiles::load_full_profile;
 use crate::db::connection::create_client;
 use crate::db::queries::{
     fetch_fragmented_indexes, rebuild_index_sql, reorganize_index_sql, update_statistics_sql,
@@ -117,15 +118,24 @@ async fn reset_control(
 }
 
 /// Returns None if Running (continue), Some(ctrl) if Stop or SkipDatabase.
-/// Blocks in a poll loop while Paused.
+/// Waits with zero CPU while Paused — uses watch::changed() instead of polling.
 async fn check_ctrl(ctrl_rx: &watch::Receiver<MaintenanceControl>) -> Option<MaintenanceControl> {
+    // Clone so we can call changed() (&mut self) without changing the shared receiver.
+    let mut rx = ctrl_rx.clone();
     loop {
-        let ctrl = ctrl_rx.borrow().clone();
+        // borrow_and_update marks the current value as seen so changed() waits
+        // for the *next* send rather than returning immediately on the clone's
+        // "never seen" initial state.
+        let ctrl = rx.borrow_and_update().clone();
         match ctrl {
             MaintenanceControl::Running => return None,
             MaintenanceControl::Stop | MaintenanceControl::SkipDatabase => return Some(ctrl),
             MaintenanceControl::Paused => {
-                sleep(Duration::from_millis(150)).await;
+                // Suspend until the state changes (e.g. Resume or Stop).
+                // If the sender is dropped, treat it as a stop signal.
+                if rx.changed().await.is_err() {
+                    return Some(MaintenanceControl::Stop);
+                }
             }
         }
     }
@@ -287,19 +297,53 @@ fn make_skipped_result(db_name: &str) -> DatabaseResult {
 // Tauri commands
 // ---------------------------------------------------------------------------
 
+/// Guard that removes the profile's control channel entry even if the task panics.
+struct ControlGuard {
+    control_txs: Arc<Mutex<HashMap<String, watch::Sender<MaintenanceControl>>>>,
+    profile_id: String,
+}
+
+impl Drop for ControlGuard {
+    fn drop(&mut self) {
+        let id = self.profile_id.clone();
+        // try_lock succeeds in the normal case; if the lock happens to be held
+        // during an unwind, spawn a cleanup task rather than deadlocking.
+        match self.control_txs.try_lock() {
+            Ok(mut g) => {
+                g.remove(&id);
+            }
+            Err(_) => {
+                // Clone directly from self to avoid the borrow/move conflict
+                // with the match expression's borrow of try_lock's result.
+                let txs = self.control_txs.clone();
+                tokio::spawn(async move {
+                    txs.lock().await.remove(&id);
+                });
+            }
+        }
+    }
+}
+
 #[specta::specta]
 #[tauri::command]
 pub async fn run_maintenance(
     app: AppHandle,
     state: State<'_, AppState>,
-    profile: ServerProfile,
+    profile_id: String,
     databases: Vec<String>,
     options: MaintenanceOptions,
 ) -> Result<(), String> {
+    if databases.is_empty() {
+        return Err("No databases selected".to_string());
+    }
+
     // Validate thresholds before spawning the task
     if options.reorganize_threshold <= 0.0 || options.rebuild_threshold <= 0.0 {
         return Err("Fragmentation thresholds must be positive".to_string());
     }
+
+    // Load full credentials server-side — passwords never travel over IPC
+    let profile = load_full_profile(&app, &state.profile_io_lock, &profile_id).await?;
 
     let (tx, rx) = watch::channel(MaintenanceControl::Running);
     let control_txs = state.control_txs.clone();
@@ -313,6 +357,10 @@ pub async fn run_maintenance(
         guard.insert(profile_id.to_string(), tx);
     }
 
+    // Clone what the ControlGuard needs before ctx takes ownership of control_txs
+    let guard_txs = control_txs.clone();
+    let guard_id = profile_id.to_string();
+
     let ctx = MaintenanceCtx {
         app,
         control_txs,
@@ -324,6 +372,9 @@ pub async fn run_maintenance(
     };
 
     tauri::async_runtime::spawn(async move {
+        // Ensures control_txs entry is removed even if maintenance_task panics.
+        // On normal completion finish_run() already removes it, making this a no-op.
+        let _guard = ControlGuard { control_txs: guard_txs, profile_id: guard_id };
         maintenance_task(ctx, databases).await;
     });
 
@@ -861,13 +912,21 @@ async fn process_database(
                     error: None,
                 });
 
-                // Update statistics — best effort, swallow errors
+                // Update statistics — best effort, bounded by request_timeout if set
                 let stats_sql = update_statistics_sql(
                     &index.schema_name,
                     &index.table_name,
                     &index.index_name,
                 );
-                let _ = client.execute(stats_sql.as_str(), &[]).await;
+                if options.request_timeout_ms > 0 {
+                    let _ = timeout(
+                        Duration::from_millis(options.request_timeout_ms),
+                        client.execute(stats_sql.as_str(), &[]),
+                    )
+                    .await;
+                } else {
+                    let _ = client.execute(stats_sql.as_str(), &[]).await;
+                }
 
                 let _ = app.emit(
                     "maintenance:index-complete",

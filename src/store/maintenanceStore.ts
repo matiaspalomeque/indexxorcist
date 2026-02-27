@@ -7,7 +7,6 @@ import type {
   IndexCompletePayload,
   IndexDetail,
   IndexFoundPayload,
-  IndexInfo,
   MaintenanceFinishedPayload,
   MaintenanceSummary,
   RunState,
