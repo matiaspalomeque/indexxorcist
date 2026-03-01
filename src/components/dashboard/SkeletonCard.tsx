@@ -1,7 +1,7 @@
 export function SkeletonCard({ delay = 0 }: { delay?: number }) {
   return (
     <div 
-      className="w-full border-2 border-gray-200 dark:border-gray-700 rounded-xl p-6 bg-white dark:bg-gray-900 shadow-lg animate-pulse"
+      className="w-full border-2 border-gray-200 dark:border-gray-700 rounded-xl p-6 bg-white dark:bg-gray-900 shadow-lg"
       style={{
         animation: `fadeInUp 0.4s ease-out ${delay}ms backwards, pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite`,
       }}

@@ -51,7 +51,7 @@ export function useMaintenanceEvents() {
             ui.currentView !== "profiles" &&
             ui.currentView !== "history"
           ) {
-            useUiStore.getState().setView("summary");
+            ui.setView("summary");
           }
         }),
         listen<MaintenanceControlPayload>("maintenance:control", (e) => {

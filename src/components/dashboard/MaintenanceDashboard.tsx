@@ -30,29 +30,25 @@ export function MaintenanceDashboard() {
     );
   }
 
-  const doneCount = run.databases.filter(
-    (d) => d.state === "done" || d.state === "error" || d.state === "skipped" || d.state === "stopped"
-  ).length;
-  
-  const runningDbCount = run.databases.filter((d) => d.state === "running").length;
-  
-  const overallCurrent = run.isParallel
-    ? (() => {
-        // In parallel mode, count completed DBs + sum of running DB progress
-        const runningDbs = run.databases.filter((d) => d.state === "running");
-        const runningProgress = runningDbs.reduce((sum, db) => {
-          return sum + (db.indexes.length === 0 ? 0 : Math.min(db.indexes_processed / db.indexes.length, 1));
-        }, 0);
-        return Math.min(doneCount + runningProgress, run.totalDbs);
-      })()
-    : (() => {
-        const runningDb = run.databases.find((d) => d.state === "running");
-        const runningDbProgress =
-          !runningDb || runningDb.indexes.length === 0
-            ? 0
-            : Math.min(runningDb.indexes_processed / runningDb.indexes.length, 1);
-        return Math.min(doneCount + runningDbProgress, run.totalDbs);
-      })();
+  let doneCount = 0;
+  const runningDbs: typeof run.databases = [];
+  for (const db of run.databases) {
+    if (db.state === "done" || db.state === "error" || db.state === "skipped" || db.state === "stopped") {
+      doneCount++;
+    } else if (db.state === "running") {
+      runningDbs.push(db);
+    }
+  }
+  const runningDbCount = runningDbs.length;
+
+  const dbProgress = (db: { indexes: unknown[]; indexes_processed: number }) =>
+    db.indexes.length === 0 ? 0 : Math.min(db.indexes_processed / db.indexes.length, 1);
+
+  const runningProgress = run.isParallel
+    ? runningDbs.reduce((sum, db) => sum + dbProgress(db), 0)
+    : dbProgress(runningDbs[0] ?? { indexes: [], indexes_processed: 0 });
+
+  const overallCurrent = Math.min(doneCount + runningProgress, run.totalDbs);
 
   return (
     <div className="h-full flex flex-col" role="region" aria-label="Maintenance Dashboard">

@@ -8,20 +8,12 @@ export function useElapsedTime(startedAtMs: number, isActive: boolean): number {
   const [elapsedSecs, setElapsedSecs] = useState(0);
 
   useEffect(() => {
-    if (!isActive) {
-      // Calculate final elapsed time when inactive
-      setElapsedSecs(Math.floor((Date.now() - startedAtMs) / 1000));
-      return;
-    }
+    const elapsed = () => Math.floor((Date.now() - startedAtMs) / 1000);
+    setElapsedSecs(elapsed());
 
-    // Initial calculation
-    setElapsedSecs(Math.floor((Date.now() - startedAtMs) / 1000));
+    if (!isActive) return;
 
-    // Update every second
-    const interval = setInterval(() => {
-      setElapsedSecs(Math.floor((Date.now() - startedAtMs) / 1000));
-    }, 1000);
-
+    const interval = setInterval(() => setElapsedSecs(elapsed()), 1000);
     return () => clearInterval(interval);
   }, [startedAtMs, isActive]);
 
