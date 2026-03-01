@@ -141,6 +141,21 @@ async fn check_ctrl(ctrl_rx: &watch::Receiver<MaintenanceControl>) -> Option<Mai
     }
 }
 
+/// Resolves when the control channel receives a `Stop` signal (or the sender is dropped).
+/// Used as the cancel branch in `tokio::select!` to abort long-running SQL operations.
+async fn wait_for_stop(ctrl_rx: &watch::Receiver<MaintenanceControl>) {
+    let mut rx = ctrl_rx.clone();
+    rx.borrow_and_update();
+    loop {
+        if rx.changed().await.is_err() {
+            return;
+        }
+        if *rx.borrow() == MaintenanceControl::Stop {
+            return;
+        }
+    }
+}
+
 async fn wait_delay_with_ctrl(
     total_ms: u64,
     ctrl_rx: &watch::Receiver<MaintenanceControl>,
@@ -208,14 +223,23 @@ async fn execute_index_operation(
     for att in 1..=options.retry_max_attempts {
         attempt = att;
 
-        let execute_result = if options.request_timeout_ms == 0 {
-            Ok(client.execute(sql, &[]).await)
-        } else {
-            timeout(
-                Duration::from_millis(options.request_timeout_ms),
-                client.execute(sql, &[]),
-            )
-            .await
+        let sql_fut = async {
+            if options.request_timeout_ms == 0 {
+                Ok(client.execute(sql, &[]).await)
+            } else {
+                timeout(
+                    Duration::from_millis(options.request_timeout_ms),
+                    client.execute(sql, &[]),
+                )
+                .await
+            }
+        };
+
+        let execute_result = tokio::select! {
+            res = sql_fut => res,
+            _ = wait_for_stop(ctrl_rx) => {
+                return IndexOpResult::Interrupted(MaintenanceControl::Stop);
+            }
         };
 
         match execute_result {
@@ -725,40 +749,55 @@ async fn process_database(
         index_results: vec![],
     };
 
-    let mut client =
-        match create_client(profile, Some(db_name), options.connection_timeout_ms).await {
-            Ok(c) => c,
-            Err(e) => {
-                result.success = false;
-                result.critical_failure = true;
-                result.errors.push(format!("Connection failed: {}", e));
-                let _ = app.emit(
-                    "maintenance:error",
-                    MaintenanceErrorEvent {
-                        profile_id: profile_id.to_string(),
-                        message: format!("{}: {}", db_name, e),
-                    },
-                );
-                result.total_duration_secs = db_start.elapsed().as_secs_f64();
-                return (result, false);
+    let mut client = tokio::select! {
+        res = create_client(profile, Some(db_name), options.connection_timeout_ms) => {
+            match res {
+                Ok(c) => c,
+                Err(e) => {
+                    result.success = false;
+                    result.critical_failure = true;
+                    result.errors.push(format!("Connection failed: {}", e));
+                    let _ = app.emit(
+                        "maintenance:error",
+                        MaintenanceErrorEvent {
+                            profile_id: profile_id.to_string(),
+                            message: format!("{}: {}", db_name, e),
+                        },
+                    );
+                    result.total_duration_secs = db_start.elapsed().as_secs_f64();
+                    return (result, false);
+                }
             }
-        };
-
-    let indexes = match fetch_fragmented_indexes(&mut client, db_name).await {
-        Ok(idxs) => idxs,
-        Err(e) => {
-            result.success = false;
-            result.critical_failure = true;
-            result.errors.push(format!("Failed to fetch indexes: {}", e));
-            let _ = app.emit(
-                "maintenance:error",
-                MaintenanceErrorEvent {
-                    profile_id: profile_id.to_string(),
-                    message: format!("{}: {}", db_name, e),
-                },
-            );
+        }
+        _ = wait_for_stop(ctrl_rx) => {
             result.total_duration_secs = db_start.elapsed().as_secs_f64();
-            return (result, false);
+            return (result, true);
+        }
+    };
+
+    let indexes = tokio::select! {
+        res = fetch_fragmented_indexes(&mut client, db_name) => {
+            match res {
+                Ok(idxs) => idxs,
+                Err(e) => {
+                    result.success = false;
+                    result.critical_failure = true;
+                    result.errors.push(format!("Failed to fetch indexes: {}", e));
+                    let _ = app.emit(
+                        "maintenance:error",
+                        MaintenanceErrorEvent {
+                            profile_id: profile_id.to_string(),
+                            message: format!("{}: {}", db_name, e),
+                        },
+                    );
+                    result.total_duration_secs = db_start.elapsed().as_secs_f64();
+                    return (result, false);
+                }
+            }
+        }
+        _ = wait_for_stop(ctrl_rx) => {
+            result.total_duration_secs = db_start.elapsed().as_secs_f64();
+            return (result, true);
         }
     };
 
@@ -930,14 +969,40 @@ async fn process_database(
                     &index.table_name,
                     &index.index_name,
                 );
-                if options.request_timeout_ms > 0 {
-                    let _ = timeout(
-                        Duration::from_millis(options.request_timeout_ms),
-                        client.execute(stats_sql.as_str(), &[]),
-                    )
-                    .await;
-                } else {
-                    let _ = client.execute(stats_sql.as_str(), &[]).await;
+                let stats_fut = async {
+                    if options.request_timeout_ms > 0 {
+                        let _ = timeout(
+                            Duration::from_millis(options.request_timeout_ms),
+                            client.execute(stats_sql.as_str(), &[]),
+                        )
+                        .await;
+                    } else {
+                        let _ = client.execute(stats_sql.as_str(), &[]).await;
+                    }
+                };
+                tokio::select! {
+                    _ = stats_fut => {}
+                    _ = wait_for_stop(ctrl_rx) => {
+                        stopped = true;
+                        // Emit index-complete before breaking so the frontend
+                        // reflects the successful operation that already finished.
+                        let _ = app.emit(
+                            "maintenance:index-complete",
+                            IndexCompleteEvent {
+                                profile_id: profile_id.to_string(),
+                                db_name: index.database_name.clone(),
+                                schema_name: index.schema_name.clone(),
+                                table_name: index.table_name.clone(),
+                                index_name: index.index_name.clone(),
+                                action,
+                                success: true,
+                                duration_secs,
+                                retry_attempts: attempts,
+                                error: None,
+                            },
+                        );
+                        break 'indexes;
+                    }
                 }
 
                 let _ = app.emit(
@@ -959,9 +1024,12 @@ async fn process_database(
         }
     }
 
-    // DBCC FREEPROCCACHE — best effort
-    if options.free_proc_cache && (result.indexes_rebuilt > 0 || result.indexes_reorganized > 0) {
-        let _ = client.execute(FREE_PROC_CACHE, &[]).await;
+    // DBCC FREEPROCCACHE — best effort, cancellable on stop
+    if !stopped && options.free_proc_cache && (result.indexes_rebuilt > 0 || result.indexes_reorganized > 0) {
+        tokio::select! {
+            _ = client.execute(FREE_PROC_CACHE, &[]) => {}
+            _ = wait_for_stop(ctrl_rx) => { stopped = true; }
+        }
     }
 
     result.total_duration_secs = db_start.elapsed().as_secs_f64();
