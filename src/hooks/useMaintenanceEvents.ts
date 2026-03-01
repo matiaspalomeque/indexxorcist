@@ -12,6 +12,7 @@ import type {
 } from "../types";
 import { useMaintenanceStore } from "../store/maintenanceStore";
 import { useUiStore } from "../store/uiStore";
+import { useHistoryStore } from "../store/historyStore";
 
 // Mounted once at App root — persists across view navigation.
 // Store methods are read via getState() inside the effect so the dep array is
@@ -41,17 +42,23 @@ export function useMaintenanceEvents() {
         ),
         listen<MaintenanceFinishedPayload>("maintenance:finished", (e) => {
           store().handleFinished(e.payload);
+          // Refresh history so the completed/stopped run is immediately visible
+          void useHistoryStore.getState().loadHistory(undefined, 100);
           // Auto-navigate to summary if the user is viewing this profile's dashboard
           const ui = useUiStore.getState();
           if (
             ui.activeProfileId === e.payload.profile_id &&
-            ui.currentView === "dashboard"
+            ui.currentView !== "profiles" &&
+            ui.currentView !== "history"
           ) {
-            useUiStore.getState().setView("summary");
+            ui.setView("summary");
           }
         }),
         listen<MaintenanceControlPayload>("maintenance:control", (e) => {
           store().setRunState(e.payload.profile_id, e.payload.state);
+          if (e.payload.state === "stopped") {
+            store().handleStopSignal(e.payload.profile_id);
+          }
         }),
         listen<MaintenanceErrorPayload>("maintenance:error", (e) =>
           console.error(

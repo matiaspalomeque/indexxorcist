@@ -118,11 +118,13 @@ const en: Translations = {
   "dbState.done": "Done",
   "dbState.error": "Error",
   "dbState.skipped": "Skipped",
+  "dbState.stopped": "Stopped",
 
   // Database card stats
   "dbCard.rebuilt": "rebuilt",
   "dbCard.reorganized": "reorganized",
   "dbCard.skipped": "skipped",
+  "dbCard.indexes": "indexes",
   "dbCard.errors": "{count} error",
   "dbCard.errorsPlural": "{count} errors",
 
@@ -359,11 +361,13 @@ const esAR: Translations = {
   "dbState.done": "Completado",
   "dbState.error": "Error",
   "dbState.skipped": "Omitido",
+  "dbState.stopped": "Detenido",
 
   // Database card stats
   "dbCard.rebuilt": "reconstruidos",
   "dbCard.reorganized": "reorganizados",
   "dbCard.skipped": "omitidos",
+  "dbCard.indexes": "índices",
   "dbCard.errors": "{count} error",
   "dbCard.errorsPlural": "{count} errores",
 

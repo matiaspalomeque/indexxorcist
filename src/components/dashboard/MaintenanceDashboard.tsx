@@ -1,17 +1,10 @@
 import { DatabaseCard } from "./DatabaseCard";
 import { OverallProgressBar } from "./OverallProgressBar";
 import { RunControls } from "./RunControls";
+import { SkeletonCard } from "./SkeletonCard";
 import { useT } from "../../i18n";
 import { useMaintenanceStore } from "../../store/maintenanceStore";
 import { useUiStore } from "../../store/uiStore";
-
-function runStateColor(runState: string): string {
-  if (runState === "running") return "text-blue-400";
-  if (runState === "paused") return "text-amber-400";
-  if (runState === "finished") return "text-green-400";
-  if (runState === "stopped") return "text-red-400";
-  return "text-gray-400";
-}
 
 export function MaintenanceDashboard() {
   const t = useT();
@@ -37,83 +30,109 @@ export function MaintenanceDashboard() {
     );
   }
 
-  const doneCount = run.databases.filter(
-    (d) => d.state === "done" || d.state === "error" || d.state === "skipped"
-  ).length;
-  const overallCurrent = run.isParallel
-    ? doneCount
-    : (() => {
-        const runningDb = run.databases.find((d) => d.state === "running");
-        const runningDbProgress =
-          !runningDb || runningDb.indexes.length === 0
-            ? 0
-            : Math.min(runningDb.indexes_processed / runningDb.indexes.length, 1);
-        return Math.min(doneCount + runningDbProgress, run.totalDbs);
-      })();
+  let doneCount = 0;
+  const runningDbs: typeof run.databases = [];
+  for (const db of run.databases) {
+    if (db.state === "done" || db.state === "error" || db.state === "skipped" || db.state === "stopped") {
+      doneCount++;
+    } else if (db.state === "running") {
+      runningDbs.push(db);
+    }
+  }
+  const runningDbCount = runningDbs.length;
+
+  const dbProgress = (db: { indexes: unknown[]; indexes_processed: number }) =>
+    db.indexes.length === 0 ? 0 : Math.min(db.indexes_processed / db.indexes.length, 1);
+
+  const runningProgress = run.isParallel
+    ? runningDbs.reduce((sum, db) => sum + dbProgress(db), 0)
+    : dbProgress(runningDbs[0] ?? { indexes: [], indexes_processed: 0 });
+
+  const overallCurrent = Math.min(doneCount + runningProgress, run.totalDbs);
 
   return (
-    <div className="p-4 lg:p-6 pb-28">
-      <div className="mx-auto max-w-[1800px] h-full min-h-0 flex flex-col gap-4 lg:gap-5">
-        <div className="min-w-0">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t("dashboard.title")}</h2>
-          <p className="text-sm text-gray-700 dark:text-gray-400 mt-0.5 truncate">
-            {run.profileName} · {run.profileServer}
-          </p>
-          <p className={`text-sm mt-0.5 ${runStateColor(run.runState)}`}>
-            {t(`runState.${run.runState}`)}
-          </p>
-        </div>
+    <div className="h-full flex flex-col" role="region" aria-label="Maintenance Dashboard">
+      {/* Sticky Header with Progress */}
+      {run.totalDbs > 0 && (
+        <OverallProgressBar 
+          current={overallCurrent} 
+          total={run.totalDbs}
+          profileName={run.profileName}
+          profileServer={run.profileServer}
+          runState={run.runState}
+          isParallel={run.isParallel}
+          runningDbCount={runningDbCount}
+          startedAtMs={run.startedAtMs}
+        />
+      )}
 
-        {run.totalDbs > 0 && (
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4">
-            <OverallProgressBar current={overallCurrent} total={run.totalDbs} />
-          </div>
+      {/* Screen reader announcements for progress updates */}
+      <div 
+        role="status" 
+        aria-live="polite" 
+        aria-atomic="true" 
+        className="sr-only"
+      >
+        {run.runState === "running" && doneCount > 0 && (
+          `${doneCount} of ${run.totalDbs} databases completed`
         )}
-
-        {run.summary && (
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-            <StatCard label={t("dashboard.rebuilt")} value={run.summary.total_indexes_rebuilt} color="text-blue-400" />
-            <StatCard label={t("dashboard.reorganized")} value={run.summary.total_indexes_reorganized} color="text-purple-400" />
-            <StatCard label={t("dashboard.skipped")} value={run.summary.total_indexes_skipped} color="text-gray-400" />
-            <StatCard label={t("dashboard.failedDbs")} value={run.summary.databases_failed} color="text-red-400" />
-          </div>
-        )}
-
-        {run.databases.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center text-gray-600 dark:text-gray-500 text-sm">
-            {t("dashboard.waiting")}
-          </div>
-        ) : (
-          <div className="space-y-2 overflow-y-auto flex-1 min-h-[220px] pr-1">
-            {run.databases.map((db) => (
-              <DatabaseCard key={`${run.profileId}:${db.name}`} db={db} />
-            ))}
-          </div>
+        {run.runState === "finished" && (
+          `Maintenance finished. ${doneCount} databases processed.`
         )}
       </div>
 
-      <div className="sticky bottom-0 z-30 mt-4 -mx-4 lg:-mx-6 px-4 lg:px-6 pb-2">
-        <div className="mx-auto max-w-[1800px]">
-          <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur border border-gray-200 dark:border-gray-800 rounded-xl px-3 py-3 lg:px-4 lg:py-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between shadow-2xl">
-            <div className="min-w-0">
-              <p className="text-xs text-gray-700 dark:text-gray-400 truncate">
-                {run.profileName} · {run.profileServer}
-              </p>
-              <p className={`text-xs ${runStateColor(run.runState)}`}>
-                {t(`runState.${run.runState}`)}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <RunControls profileId={run.profileId} />
-              {(run.runState === "finished" || run.runState === "stopped") && (
-                <button
-                  onClick={() => setView("summary")}
-                  className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
-                >
-                  {t("dashboard.viewSummary")}
-                </button>
-              )}
-            </div>
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-4 lg:p-6 pb-32">
+          <div className="mx-auto max-w-[1800px] space-y-5">
+            {/* Stats Cards */}
+            {run.summary && (
+              <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+                <StatCard label={t("dashboard.rebuilt")} value={run.summary.total_indexes_rebuilt} color="text-blue-500" />
+                <StatCard label={t("dashboard.reorganized")} value={run.summary.total_indexes_reorganized} color="text-purple-500" />
+                <StatCard label={t("dashboard.skipped")} value={run.summary.total_indexes_skipped} color="text-gray-500" />
+                <StatCard label={t("dashboard.failedDbs")} value={run.summary.databases_failed} color="text-red-500" />
+              </div>
+            )}
+
+            {/* Database Grid */}
+            {run.databases.length === 0 ? (
+              run.runState === "running" ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 auto-rows-fr">
+                  <SkeletonCard delay={0} />
+                  <SkeletonCard delay={100} />
+                  <SkeletonCard delay={200} />
+                  <SkeletonCard delay={300} />
+                </div>
+              ) : (
+                <div className="flex items-center justify-center py-20 text-gray-600 dark:text-gray-500 text-sm">
+                  {t("dashboard.waiting")}
+                </div>
+              )
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 auto-rows-fr">
+                {run.databases.map((db, idx) => (
+                  <DatabaseCard key={`${run.profileId}:${db.name}`} db={db} delay={idx * 50} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Sticky Footer Controls */}
+      <div className="sticky bottom-0 z-30 border-t border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl shadow-2xl">
+        <div className="px-4 lg:px-6 py-3">
+          <div className="mx-auto max-w-[1800px] flex items-center justify-between gap-3">
+            <RunControls profileId={run.profileId} />
+            {(run.runState === "finished" || run.runState === "stopped") && run.summary && (
+              <button
+                onClick={() => setView("summary")}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                {t("dashboard.viewSummary")}
+              </button>
+            )}
           </div>
         </div>
       </div>

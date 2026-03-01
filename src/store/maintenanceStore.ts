@@ -45,6 +45,7 @@ interface MaintenanceState {
   handleIndexComplete: (payload: IndexCompletePayload) => void;
   handleDbComplete: (payload: DbCompletePayload) => void;
   handleFinished: (payload: MaintenanceFinishedPayload) => void;
+  handleStopSignal: (profileId: string) => void;
 }
 
 function indexKey(schema: string, table: string, index: string): string {
@@ -238,6 +239,10 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
   handleDbStart: (payload) =>
     set((state) => ({
       byProfile: withRun(state.byProfile, payload.profile_id, (run) => {
+        // Don't reset runState back to "running" if a stop has already been signaled.
+        if (run.runState === "stopped") {
+          return run;
+        }
         const nextRun = withDb(run, payload.db_name, (db) => ({ ...db, state: "running" }));
         return {
           ...nextRun,
@@ -313,20 +318,32 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
   handleDbComplete: (payload) =>
     set((state) => ({
       byProfile: withRun(state.byProfile, payload.profile_id, (run) =>
-        withDb(run, payload.result.database_name, (db) => ({
-          ...db,
-          state: payload.result.manually_skipped
-            ? "skipped"
-            : payload.result.critical_failure
-            ? "error"
-            : "done",
-          indexes_processed: payload.result.indexes_processed,
-          indexes_rebuilt: payload.result.indexes_rebuilt,
-          indexes_reorganized: payload.result.indexes_reorganized,
-          indexes_skipped: payload.result.indexes_skipped,
-          duration_secs: payload.result.total_duration_secs,
-          errors: payload.result.errors,
-        }))
+        withDb(run, payload.result.database_name, (db) => {
+          // A database is "interrupted" when it was stopped before all found indexes were
+          // processed. A normally-completed database always processes every found index
+          // (REBUILD, REORGANIZE, or SKIP), so indexes_processed === indexes.length for
+          // normal runs. If the counts differ and the db was already marked "stopped" by
+          // handleStopSignal, keep it as "stopped" rather than showing it as "done".
+          const wasInterrupted =
+            db.state === "stopped" && payload.result.indexes_processed < db.indexes.length;
+
+          return {
+            ...db,
+            state: payload.result.manually_skipped
+              ? "skipped"
+              : payload.result.critical_failure
+              ? "error"
+              : wasInterrupted
+              ? "stopped"
+              : "done",
+            indexes_processed: payload.result.indexes_processed,
+            indexes_rebuilt: payload.result.indexes_rebuilt,
+            indexes_reorganized: payload.result.indexes_reorganized,
+            indexes_skipped: payload.result.indexes_skipped,
+            duration_secs: payload.result.total_duration_secs,
+            errors: payload.result.errors,
+          };
+        })
       ),
     })),
 
@@ -342,6 +359,16 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
           runState: nextState,
         };
       }),
+    })),
+
+  handleStopSignal: (profileId) =>
+    set((state) => ({
+      byProfile: withRun(state.byProfile, profileId, (run) => ({
+        ...run,
+        databases: run.databases.map((db) =>
+          db.state === "running" ? { ...db, state: "stopped" as const } : db
+        ),
+      })),
     })),
 }));
 
