@@ -324,8 +324,13 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
           // (REBUILD, REORGANIZE, or SKIP), so indexes_processed === indexes.length for
           // normal runs. If the counts differ and the db was already marked "stopped" by
           // handleStopSignal, keep it as "stopped" rather than showing it as "done".
+          // A database was interrupted if it was already marked "stopped" by
+          // handleStopSignal AND either:
+          //   - no indexes were discovered yet (stopped during fetch_fragmented_indexes), OR
+          //   - not all discovered indexes were processed (stopped mid-processing)
           const wasInterrupted =
-            db.state === "stopped" && payload.result.indexes_processed < db.indexes.length;
+            db.state === "stopped" &&
+            (db.indexes.length === 0 || payload.result.indexes_processed < db.indexes.length);
 
           return {
             ...db,
@@ -351,8 +356,13 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
     set((state) => ({
       byProfile: withRun(state.byProfile, payload.profile_id, (run) => {
         const total = run.totalDbs || payload.summary.databases_processed;
+        // If the run was already marked "stopped" (via maintenance:control event
+        // from the Stop command), preserve that state even if all databases
+        // returned results (a cancelled database returns an empty result).
         const nextState: RunState =
-          payload.summary.databases_processed < total ? "stopped" : "finished";
+          run.runState === "stopped" || payload.summary.databases_processed < total
+            ? "stopped"
+            : "finished";
         return {
           ...run,
           summary: payload.summary,
