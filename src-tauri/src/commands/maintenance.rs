@@ -470,11 +470,8 @@ async fn maintenance_task(ctx: MaintenanceCtx, databases: Vec<String>) {
 
 async fn finish_run(ctx: &MaintenanceCtx, results: Vec<DatabaseResult>, run_start: std::time::Instant, started_at: &str) {
     let summary = build_summary(results, run_start.elapsed().as_secs_f64());
-    let _ = ctx.app.emit(
-        "maintenance:finished",
-        MaintenanceFinishedEvent { profile_id: ctx.profile_id.to_string(), summary: summary.clone() },
-    );
 
+    // Persist first — guarantees history exists before the frontend receives the event.
     persist_history(
         &ctx.history_db,
         &ctx.profile_id,
@@ -484,6 +481,11 @@ async fn finish_run(ctx: &MaintenanceCtx, results: Vec<DatabaseResult>, run_star
         &summary,
     )
     .await;
+
+    let _ = ctx.app.emit(
+        "maintenance:finished",
+        MaintenanceFinishedEvent { profile_id: ctx.profile_id.to_string(), summary: summary.clone() },
+    );
 
     ctx.control_txs.lock().await.remove(ctx.profile_id.as_ref());
 }
@@ -572,8 +574,18 @@ async fn maintenance_task_parallel(ctx: MaintenanceCtx, databases: Vec<String>) 
         Arc::new(Mutex::new(Vec::new()));
 
     for (idx, db_name) in databases.iter().enumerate() {
+        // Fast-path stop check — avoids blocking on semaphore when already stopping.
+        if *ctx.ctrl_rx.borrow() == MaintenanceControl::Stop {
+            break;
+        }
+
         // Acquire semaphore BEFORE spawn — backpressure at task creation
         let permit = semaphore.clone().acquire_owned().await.unwrap();
+
+        // Re-check after potentially blocking on the semaphore while others ran.
+        if *ctx.ctrl_rx.borrow() == MaintenanceControl::Stop {
+            break; // permit drops here, releasing the slot
+        }
 
         let app_clone = ctx.app.clone();
         let profile_clone = ctx.profile.clone();

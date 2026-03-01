@@ -115,7 +115,7 @@ export interface RunRecord {
 
 // UI-only types
 
-export type DatabaseCardState = "queued" | "running" | "done" | "error" | "skipped";
+export type DatabaseCardState = "queued" | "running" | "done" | "error" | "skipped" | "stopped";
 
 export type IndexStatus = "pending" | "processing" | "done" | "skipped" | "error";
 

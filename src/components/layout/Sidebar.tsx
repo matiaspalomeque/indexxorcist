@@ -35,6 +35,7 @@ export function Sidebar() {
   const setView = useUiStore((s) => s.setView);
 
   const runsByProfile = useMaintenanceStore((s) => s.byProfile);
+  const resetProfile = useMaintenanceStore((s) => s.resetProfile);
   const activeRunState = activeProfileId ? runsByProfile[activeProfileId]?.runState : undefined;
   const wizardLocked = activeRunState ? isActiveRunState(activeRunState) : false;
 
@@ -117,7 +118,7 @@ export function Sidebar() {
                       </p>
                     </button>
                     <button
-                      onClick={() => closeProfileTab(profileId)}
+                      onClick={() => { closeProfileTab(profileId); resetProfile(profileId); }}
                       disabled={runActive}
                       title={runActive ? t("sidebar.closeTabDisabled") : t("sidebar.closeTab")}
                       className="p-1 text-gray-400 hover:text-red-500 disabled:text-gray-300 dark:disabled:text-gray-700 disabled:cursor-not-allowed"
