@@ -1,6 +1,6 @@
 [package]
 name = "indexxorcist"
-version = "0.1.12"
+version = "0.1.13"
 edition = "2021"
 rust-version = "1.77.2"
 
@@ -27,3 +27,4 @@ chrono = { version = "0.4", features = ["serde"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 tauri-plugin-updater = { version = "2" }
 tauri-plugin-process = { version = "2" }
+tauri-plugin-window-state = "2"

@@ -52,6 +52,10 @@ pub fn run() {
         .expect("Failed to export TypeScript bindings");
 
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_window_state::Builder::new()
+                .build(),
+        )
         .setup(|app| {
             let db_path = app
                 .path()
