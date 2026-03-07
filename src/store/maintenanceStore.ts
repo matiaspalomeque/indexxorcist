@@ -243,6 +243,13 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
         if (run.runState === "stopped") {
           return run;
         }
+        // Don't revert a pre-skipped database back to "running". This can happen in
+        // parallel mode when the user skips a "queued" database optimistically and
+        // the backend emits db-start before detecting the skip_set entry.
+        const existingIdx = run.dbLookup[payload.db_name];
+        if (existingIdx != null && run.databases[existingIdx].state === "skipped") {
+          return run;
+        }
         const nextRun = withDb(run, payload.db_name, (db) => ({ ...db, state: "running" }));
         return {
           ...nextRun,

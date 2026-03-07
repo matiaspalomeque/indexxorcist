@@ -1,8 +1,10 @@
+import { useCallback, useEffect, useState } from "react";
 import { DatabaseCard } from "./DatabaseCard";
 import { OverallProgressBar } from "./OverallProgressBar";
 import { RunControls } from "./RunControls";
 import { SkeletonCard } from "./SkeletonCard";
 import { useT } from "../../i18n";
+import * as api from "../../api/tauri";
 import { useMaintenanceStore } from "../../store/maintenanceStore";
 import { useUiStore } from "../../store/uiStore";
 
@@ -13,6 +15,62 @@ export function MaintenanceDashboard() {
   const run = useMaintenanceStore((s) =>
     activeProfileId ? s.byProfile[activeProfileId] : undefined
   );
+  const setDatabaseState = useMaintenanceStore((s) => s.setDatabaseState);
+  // Tracks "running" databases where skip was requested but not yet confirmed by the backend.
+  // We don't do an optimistic state change for running databases because they may be
+  // mid-SQL-operation — inflating doneCount to 100% while the backend is still working
+  // is misleading. Queued databases are updated optimistically since they complete instantly.
+  const [pendingSkips, setPendingSkips] = useState<Set<string>>(new Set());
+
+  // Clear stale entries when databases leave "running" state (e.g. backend confirmed the skip).
+  const databases = run?.databases;
+  useEffect(() => {
+    if (!databases) return;
+    setPendingSkips((prev) => {
+      if (prev.size === 0) return prev;
+      let changed = false;
+      const next = new Set(prev);
+      for (const name of prev) {
+        const db = databases.find((d) => d.name === name);
+        if (db && db.state !== "running") {
+          next.delete(name);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [databases]);
+
+  const handleSkip = useCallback(async (dbName: string) => {
+    if (!activeProfileId) return;
+    const db = useMaintenanceStore.getState().byProfile[activeProfileId]
+      ?.databases.find((d) => d.name === dbName);
+
+    if (db?.state === "queued") {
+      // Queued databases complete almost instantly once spawned — optimistic update is accurate.
+      setDatabaseState(activeProfileId, dbName, "skipped");
+    } else {
+      // Running databases are mid-SQL-operation. Just disable the button and wait for
+      // maintenance:db-complete to confirm the skip rather than jumping to 100% prematurely.
+      setPendingSkips((prev) => new Set(prev).add(dbName));
+    }
+
+    try {
+      await api.skipDatabase(activeProfileId, dbName);
+    } catch (error) {
+      // Roll back on IPC failure
+      if (db?.state === "queued") {
+        const currentDb = useMaintenanceStore.getState().byProfile[activeProfileId]
+          ?.databases.find((d) => d.name === dbName);
+        if (currentDb?.state === "skipped") {
+          setDatabaseState(activeProfileId, dbName, "queued");
+        }
+      } else {
+        setPendingSkips((prev) => { const s = new Set(prev); s.delete(dbName); return s; });
+      }
+      console.error(`Failed to skip ${dbName}:`, error);
+    }
+  }, [activeProfileId, setDatabaseState]);
 
   if (!activeProfileId) {
     return (
@@ -39,7 +97,6 @@ export function MaintenanceDashboard() {
       runningDbs.push(db);
     }
   }
-  const runningDbCount = runningDbs.length;
 
   const dbProgress = (db: { indexes: unknown[]; indexes_processed: number }) =>
     db.indexes.length === 0 ? 0 : Math.min(db.indexes_processed / db.indexes.length, 1);
@@ -54,14 +111,13 @@ export function MaintenanceDashboard() {
     <div className="h-full flex flex-col" role="region" aria-label="Maintenance Dashboard">
       {/* Sticky Header with Progress */}
       {run.totalDbs > 0 && (
-        <OverallProgressBar 
-          current={overallCurrent} 
+        <OverallProgressBar
+          current={overallCurrent}
           total={run.totalDbs}
           profileName={run.profileName}
           profileServer={run.profileServer}
           runState={run.runState}
           isParallel={run.isParallel}
-          runningDbCount={runningDbCount}
           startedAtMs={run.startedAtMs}
         />
       )}
@@ -112,7 +168,13 @@ export function MaintenanceDashboard() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 auto-rows-fr">
                 {run.databases.map((db, idx) => (
-                  <DatabaseCard key={`${run.profileId}:${db.name}`} db={db} delay={idx * 50} />
+                  <DatabaseCard
+                    key={`${run.profileId}:${db.name}`}
+                    db={db}
+                    delay={idx * 50}
+                    onSkip={(db.state === "running" || db.state === "queued") && !pendingSkips.has(db.name) ? () => handleSkip(db.name) : undefined}
+                    skipPending={pendingSkips.has(db.name) && db.state === "running"}
+                  />
                 ))}
               </div>
             )}

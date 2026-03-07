@@ -8,10 +8,10 @@ use crate::models::types::{
     DatabaseResult, IndexInfo, IndexResult, MaintenanceAction, MaintenanceOptions,
     MaintenanceSummary, ServerProfile,
 };
-use crate::{AppState, MaintenanceControl};
+use crate::{AppState, MaintenanceControl, ProfileControl};
 use serde::Serialize;
 use specta::Type;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::{watch, Mutex};
@@ -89,12 +89,13 @@ pub struct MaintenanceErrorEvent {
 
 struct MaintenanceCtx {
     app: AppHandle,
-    control_txs: Arc<Mutex<HashMap<String, watch::Sender<MaintenanceControl>>>>,
+    control_txs: Arc<Mutex<HashMap<String, ProfileControl>>>,
     history_db: Arc<tokio::sync::Mutex<rusqlite::Connection>>,
     ctrl_rx: watch::Receiver<MaintenanceControl>,
     profile_id: Arc<str>,
     profile: ServerProfile,
     options: MaintenanceOptions,
+    skip_set: Arc<Mutex<HashSet<String>>>,
 }
 
 // ---------------------------------------------------------------------------
@@ -108,16 +109,7 @@ fn emit_control(app: &AppHandle, profile_id: &str, state: &str) {
     );
 }
 
-async fn reset_control(
-    control_txs: &Arc<Mutex<HashMap<String, watch::Sender<MaintenanceControl>>>>,
-    profile_id: &str,
-) {
-    if let Some(tx) = control_txs.lock().await.get(profile_id) {
-        let _ = tx.send(MaintenanceControl::Running);
-    }
-}
-
-/// Returns None if Running (continue), Some(ctrl) if Stop or SkipDatabase.
+/// Returns None if Running (continue), Some(Stop) if stopped.
 /// Waits with zero CPU while Paused — uses watch::changed() instead of polling.
 async fn check_ctrl(ctrl_rx: &watch::Receiver<MaintenanceControl>) -> Option<MaintenanceControl> {
     // Clone so we can call changed() (&mut self) without changing the shared receiver.
@@ -129,7 +121,7 @@ async fn check_ctrl(ctrl_rx: &watch::Receiver<MaintenanceControl>) -> Option<Mai
         let ctrl = rx.borrow_and_update().clone();
         match ctrl {
             MaintenanceControl::Running => return None,
-            MaintenanceControl::Stop | MaintenanceControl::SkipDatabase => return Some(ctrl),
+            MaintenanceControl::Stop => return Some(ctrl),
             MaintenanceControl::Paused => {
                 // Suspend until the state changes (e.g. Resume or Stop).
                 // If the sender is dropped, treat it as a stop signal.
@@ -153,6 +145,17 @@ async fn wait_for_stop(ctrl_rx: &watch::Receiver<MaintenanceControl>) {
         if *rx.borrow() == MaintenanceControl::Stop {
             return;
         }
+    }
+}
+
+/// Resolves when `db_name` is present in `skip_set`. Polls every 200 ms so the
+/// mutex is not held continuously while a long SQL operation runs.
+async fn poll_skip_set(skip_set: &Arc<Mutex<HashSet<String>>>, db_name: &str) {
+    loop {
+        if skip_set.lock().await.remove(db_name) {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(200)).await;
     }
 }
 
@@ -207,7 +210,8 @@ fn is_transient_error(err: &str) -> bool {
 enum IndexOpResult {
     Success { attempts: u32, duration_secs: f64 },
     Failure { attempts: u32, duration_secs: f64, error: String },
-    Interrupted(MaintenanceControl),
+    Interrupted,
+    ManuallySkipped,
 }
 
 /// Execute one ALTER INDEX with retry + pause/skip/stop interruptibility.
@@ -216,6 +220,8 @@ async fn execute_index_operation(
     sql: &str,
     options: &MaintenanceOptions,
     ctrl_rx: &watch::Receiver<MaintenanceControl>,
+    skip_set: &Arc<Mutex<HashSet<String>>>,
+    db_name: &str,
 ) -> IndexOpResult {
     let op_start = std::time::Instant::now();
     let mut last_err = String::new();
@@ -238,7 +244,10 @@ async fn execute_index_operation(
         let execute_result = tokio::select! {
             res = sql_fut => res,
             _ = wait_for_stop(ctrl_rx) => {
-                return IndexOpResult::Interrupted(MaintenanceControl::Stop);
+                return IndexOpResult::Interrupted;
+            }
+            _ = poll_skip_set(skip_set, db_name) => {
+                return IndexOpResult::ManuallySkipped;
             }
         };
 
@@ -265,8 +274,8 @@ async fn execute_index_operation(
         let delay_ms = ((options.retry_base_delay_ms as f64) * 2f64.powi(att as i32 - 1))
             .min(options.retry_max_delay_ms as f64) as u64;
 
-        if let Some(ctrl) = wait_delay_with_ctrl(delay_ms, ctrl_rx).await {
-            return IndexOpResult::Interrupted(ctrl);
+        if wait_delay_with_ctrl(delay_ms, ctrl_rx).await.is_some() {
+            return IndexOpResult::Interrupted;
         }
     }
 
@@ -323,7 +332,7 @@ fn make_skipped_result(db_name: &str) -> DatabaseResult {
 
 /// Guard that removes the profile's control channel entry even if the task panics.
 struct ControlGuard {
-    control_txs: Arc<Mutex<HashMap<String, watch::Sender<MaintenanceControl>>>>,
+    control_txs: Arc<Mutex<HashMap<String, ProfileControl>>>,
     profile_id: String,
 }
 
@@ -370,6 +379,7 @@ pub async fn run_maintenance(
     let profile = load_full_profile(&app, &state.profile_io_lock, &profile_id).await?;
 
     let (tx, rx) = watch::channel(MaintenanceControl::Running);
+    let skip_set = Arc::new(Mutex::new(HashSet::new()));
     let control_txs = state.control_txs.clone();
     let history_db = state.history_db.clone();
     let profile_id: Arc<str> = Arc::from(profile.id.as_str());
@@ -378,7 +388,10 @@ pub async fn run_maintenance(
         if guard.contains_key(profile_id.as_ref()) {
             return Err("Maintenance run is already active for this profile".to_string());
         }
-        guard.insert(profile_id.to_string(), tx);
+        guard.insert(
+            profile_id.to_string(),
+            ProfileControl { tx, skip_set: skip_set.clone() },
+        );
     }
 
     // Clone what the ControlGuard needs before ctx takes ownership of control_txs
@@ -393,6 +406,7 @@ pub async fn run_maintenance(
         profile_id,
         profile,
         options,
+        skip_set,
     };
 
     tauri::async_runtime::spawn(async move {
@@ -417,7 +431,7 @@ pub async fn pause_maintenance(
         .lock()
         .await
         .get(&profile_id)
-        .cloned()
+        .map(|ctrl| ctrl.tx.clone())
         .ok_or_else(|| "No active maintenance run for this profile".to_string())?;
     tx.send(MaintenanceControl::Paused).map_err(|e| e.to_string())?;
     emit_control(&app, &profile_id, "paused");
@@ -436,7 +450,7 @@ pub async fn resume_maintenance(
         .lock()
         .await
         .get(&profile_id)
-        .cloned()
+        .map(|ctrl| ctrl.tx.clone())
         .ok_or_else(|| "No active maintenance run for this profile".to_string())?;
     tx.send(MaintenanceControl::Running).map_err(|e| e.to_string())?;
     emit_control(&app, &profile_id, "running");
@@ -445,15 +459,19 @@ pub async fn resume_maintenance(
 
 #[specta::specta]
 #[tauri::command]
-pub async fn skip_database(state: State<'_, AppState>, profile_id: String) -> Result<(), String> {
-    let tx = state
+pub async fn skip_database(
+    state: State<'_, AppState>,
+    profile_id: String,
+    db_name: String,
+) -> Result<(), String> {
+    let skip_set = state
         .control_txs
         .lock()
         .await
         .get(&profile_id)
-        .cloned()
+        .map(|ctrl| ctrl.skip_set.clone())
         .ok_or_else(|| "No active maintenance run for this profile".to_string())?;
-    tx.send(MaintenanceControl::SkipDatabase).map_err(|e| e.to_string())?;
+    skip_set.lock().await.insert(db_name);
     Ok(())
 }
 
@@ -469,7 +487,7 @@ pub async fn stop_maintenance(
         .lock()
         .await
         .get(&profile_id)
-        .cloned()
+        .map(|ctrl| ctrl.tx.clone())
         .ok_or_else(|| "No active maintenance run for this profile".to_string())?;
     tx.send(MaintenanceControl::Stop).map_err(|e| e.to_string())?;
     emit_control(&app, &profile_id, "stopped");
@@ -495,7 +513,6 @@ async fn maintenance_task(ctx: MaintenanceCtx, databases: Vec<String>) {
 async fn finish_run(ctx: &MaintenanceCtx, results: Vec<DatabaseResult>, run_start: std::time::Instant, started_at: &str) {
     let summary = build_summary(results, run_start.elapsed().as_secs_f64());
 
-    // Persist first — guarantees history exists before the frontend receives the event.
     persist_history(
         &ctx.history_db,
         &ctx.profile_id,
@@ -506,12 +523,12 @@ async fn finish_run(ctx: &MaintenanceCtx, results: Vec<DatabaseResult>, run_star
     )
     .await;
 
+    ctx.control_txs.lock().await.remove(ctx.profile_id.as_ref());
+
     let _ = ctx.app.emit(
         "maintenance:finished",
         MaintenanceFinishedEvent { profile_id: ctx.profile_id.to_string(), summary: summary.clone() },
     );
-
-    ctx.control_txs.lock().await.remove(ctx.profile_id.as_ref());
 }
 
 // ---------------------------------------------------------------------------
@@ -530,17 +547,6 @@ async fn maintenance_task_sequential(ctx: MaintenanceCtx, databases: Vec<String>
             Some(MaintenanceControl::Stop) => {
                 emit_control(&ctx.app, &ctx.profile_id, "stopped");
                 break 'outer;
-            }
-            Some(MaintenanceControl::SkipDatabase) => {
-                reset_control(&ctx.control_txs, &ctx.profile_id).await;
-                emit_control(&ctx.app, &ctx.profile_id, "running");
-                let result = make_skipped_result(db_name);
-                let _ = ctx.app.emit(
-                    "maintenance:db-complete",
-                    DbCompleteEvent { profile_id: ctx.profile_id.to_string(), result: result.clone() },
-                );
-                all_results.push(result);
-                continue;
             }
             _ => {}
         }
@@ -562,7 +568,7 @@ async fn maintenance_task_sequential(ctx: MaintenanceCtx, databases: Vec<String>
             db_name,
             &ctx.options,
             &ctx.ctrl_rx,
-            &ctx.control_txs,
+            &ctx.skip_set,
         )
         .await;
 
@@ -615,7 +621,7 @@ async fn maintenance_task_parallel(ctx: MaintenanceCtx, databases: Vec<String>) 
         let profile_clone = ctx.profile.clone();
         let options_clone = ctx.options.clone();
         let ctrl_rx_clone = ctx.ctrl_rx.clone();
-        let control_txs_clone = ctx.control_txs.clone();
+        let skip_set_clone = ctx.skip_set.clone();
         let profile_id_clone = ctx.profile_id.clone();
         let db_name_clone = db_name.clone();
         let results_clone = ordered_results.clone();
@@ -640,7 +646,7 @@ async fn maintenance_task_parallel(ctx: MaintenanceCtx, databases: Vec<String>) 
                 &db_name_clone,
                 &options_clone,
                 &ctrl_rx_clone,
-                &control_txs_clone,
+                &skip_set_clone,
             )
             .await;
 
@@ -660,8 +666,8 @@ async fn maintenance_task_parallel(ctx: MaintenanceCtx, databases: Vec<String>) 
         if let Ok(should_stop) = task_result {
             if should_stop && !any_stopped {
                 any_stopped = true;
-                if let Some(tx) = ctx.control_txs.lock().await.get(ctx.profile_id.as_ref()) {
-                    let _ = tx.send(MaintenanceControl::Stop);
+                if let Some(ctrl) = ctx.control_txs.lock().await.get(ctx.profile_id.as_ref()) {
+                    let _ = ctrl.tx.send(MaintenanceControl::Stop);
                 }
             }
         }
@@ -732,8 +738,13 @@ async fn process_database(
     db_name: &str,
     options: &MaintenanceOptions,
     ctrl_rx: &watch::Receiver<MaintenanceControl>,
-    control_txs: &Arc<Mutex<HashMap<String, watch::Sender<MaintenanceControl>>>>,
+    skip_set: &Arc<Mutex<HashSet<String>>>,
 ) -> (DatabaseResult, bool) {
+    // Check if this database was queued for skipping before it started.
+    if skip_set.lock().await.remove(db_name) {
+        return (make_skipped_result(db_name), false);
+    }
+
     let db_start = std::time::Instant::now();
     let mut result = DatabaseResult {
         database_name: db_name.to_string(),
@@ -773,6 +784,11 @@ async fn process_database(
             result.total_duration_secs = db_start.elapsed().as_secs_f64();
             return (result, true);
         }
+        _ = poll_skip_set(skip_set, db_name) => {
+            let mut r = make_skipped_result(db_name);
+            r.total_duration_secs = db_start.elapsed().as_secs_f64();
+            return (r, false);
+        }
     };
 
     let indexes = tokio::select! {
@@ -799,6 +815,11 @@ async fn process_database(
             result.total_duration_secs = db_start.elapsed().as_secs_f64();
             return (result, true);
         }
+        _ = poll_skip_set(skip_set, db_name) => {
+            result.total_duration_secs = db_start.elapsed().as_secs_f64();
+            result.manually_skipped = true;
+            return (result, false);
+        }
     };
 
     for idx in &indexes {
@@ -811,19 +832,26 @@ async fn process_database(
     let mut stopped = false;
     let mut manually_skipped = false;
 
+    // Check if skip was requested while we were connecting or fetching indexes
+    // (covers the case where the DB has zero fragmented indexes and the loop never runs).
+    if skip_set.lock().await.remove(db_name) {
+        result.total_duration_secs = db_start.elapsed().as_secs_f64();
+        result.manually_skipped = true;
+        return (result, false);
+    }
+
     'indexes: for index in &indexes {
         match check_ctrl(ctrl_rx).await {
             Some(MaintenanceControl::Stop) => {
                 stopped = true;
                 break 'indexes;
             }
-            Some(MaintenanceControl::SkipDatabase) => {
-                reset_control(control_txs, profile_id).await;
-                emit_control(app, profile_id, "running");
-                manually_skipped = true;
-                break 'indexes;
-            }
             _ => {}
+        }
+
+        if skip_set.lock().await.remove(db_name) {
+            manually_skipped = true;
+            break 'indexes;
         }
 
         result.indexes_processed += 1;
@@ -892,19 +920,16 @@ async fn process_database(
             MaintenanceAction::Skip => unreachable!(),
         };
 
-        let op_result = execute_index_operation(&mut client, &sql, options, ctrl_rx).await;
+        let op_result = execute_index_operation(&mut client, &sql, options, ctrl_rx, skip_set, db_name).await;
 
         match op_result {
-            IndexOpResult::Interrupted(ctrl) => {
-                match ctrl {
-                    MaintenanceControl::Stop => stopped = true,
-                    MaintenanceControl::SkipDatabase => {
-                        reset_control(control_txs, profile_id).await;
-                        emit_control(app, profile_id, "running");
-                        manually_skipped = true;
-                    }
-                    _ => {}
-                }
+            IndexOpResult::Interrupted => {
+                stopped = true;
+                break 'indexes;
+            }
+
+            IndexOpResult::ManuallySkipped => {
+                manually_skipped = true;
                 break 'indexes;
             }
 
@@ -1003,6 +1028,25 @@ async fn process_database(
                         );
                         break 'indexes;
                     }
+                    _ = poll_skip_set(skip_set, db_name) => {
+                        manually_skipped = true;
+                        let _ = app.emit(
+                            "maintenance:index-complete",
+                            IndexCompleteEvent {
+                                profile_id: profile_id.to_string(),
+                                db_name: index.database_name.clone(),
+                                schema_name: index.schema_name.clone(),
+                                table_name: index.table_name.clone(),
+                                index_name: index.index_name.clone(),
+                                action,
+                                success: true,
+                                duration_secs,
+                                retry_attempts: attempts,
+                                error: None,
+                            },
+                        );
+                        break 'indexes;
+                    }
                 }
 
                 let _ = app.emit(
@@ -1024,8 +1068,13 @@ async fn process_database(
         }
     }
 
+    // Consume any skip queued during the last index operation (no next iteration to catch it).
+    if !stopped && !manually_skipped && skip_set.lock().await.remove(db_name) {
+        manually_skipped = true;
+    }
+
     // DBCC FREEPROCCACHE — best effort, cancellable on stop
-    if !stopped && options.free_proc_cache && (result.indexes_rebuilt > 0 || result.indexes_reorganized > 0) {
+    if !stopped && !manually_skipped && options.free_proc_cache && (result.indexes_rebuilt > 0 || result.indexes_reorganized > 0) {
         tokio::select! {
             _ = client.execute(FREE_PROC_CACHE, &[]) => {}
             _ = wait_for_stop(ctrl_rx) => { stopped = true; }

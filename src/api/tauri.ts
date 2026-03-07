@@ -33,8 +33,8 @@ export const pauseMaintenance = (profileId: string): Promise<void> =>
 export const resumeMaintenance = (profileId: string): Promise<void> =>
   invoke("resume_maintenance", { profileId });
 
-export const skipDatabase = (profileId: string): Promise<void> =>
-  invoke("skip_database", { profileId });
+export const skipDatabase = (profileId: string, dbName: string): Promise<void> =>
+  invoke("skip_database", { profileId, dbName });
 
 export const stopMaintenance = (profileId: string): Promise<void> =>
   invoke("stop_maintenance", { profileId });
