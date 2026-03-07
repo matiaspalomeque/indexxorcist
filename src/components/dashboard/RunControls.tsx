@@ -1,4 +1,4 @@
-import { Pause, Play, SkipForward, Square, Loader2 } from "lucide-react";
+import { Pause, Play, Square, Loader2 } from "lucide-react";
 import { useState } from "react";
 import * as api from "../../api/tauri";
 import { useT } from "../../i18n";
@@ -12,15 +12,14 @@ export function RunControls({ profileId }: RunControlsProps) {
   const t = useT();
   const run = useMaintenanceStore((s) => s.byProfile[profileId]);
   const setRunState = useMaintenanceStore((s) => s.setRunState);
-  const setDatabaseState = useMaintenanceStore((s) => s.setDatabaseState);
-  const [busy, setBusy] = useState<null | "pause" | "skip" | "stop">(null);
+  const [busy, setBusy] = useState<null | "pause" | "stop">(null);
   const [controlError, setControlError] = useState("");
 
   if (!run) {
     return null;
   }
 
-  const { runState, isParallel } = run;
+  const { runState } = run;
 
   if (runState === "idle" || runState === "finished" || runState === "stopped") {
     return null;
@@ -39,34 +38,6 @@ export function RunControls({ profileId }: RunControlsProps) {
       }
     } catch (error) {
       console.error(`Failed to toggle pause state for ${profileId}:`, error);
-      setControlError(String(error));
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const handleSkip = async () => {
-    setControlError("");
-    setBusy("skip");
-    const snapshot = useMaintenanceStore.getState().byProfile[profileId];
-    const activeDb =
-      snapshot?.databases.find((db) => db.state === "running") ??
-      (snapshot && snapshot.currentDbIndex > 0
-        ? snapshot.databases[snapshot.currentDbIndex - 1]
-        : undefined);
-    const optimisticDbName = activeDb?.name;
-
-    if (optimisticDbName) {
-      setDatabaseState(profileId, optimisticDbName, "skipped");
-    }
-
-    try {
-      await api.skipDatabase(profileId);
-    } catch (error) {
-      if (optimisticDbName) {
-        setDatabaseState(profileId, optimisticDbName, "running");
-      }
-      console.error(`Failed to skip database for ${profileId}:`, error);
       setControlError(String(error));
     } finally {
       setBusy(null);
@@ -118,29 +89,6 @@ export function RunControls({ profileId }: RunControlsProps) {
             <>
               <Pause size={16} className="group-hover:scale-110 transition-transform" />
               <span>{t("controls.pause")}</span>
-            </>
-          )}
-        </button>
-
-        {/* Skip Button */}
-        <button
-          onClick={handleSkip}
-          disabled={busy !== null || isParallel}
-          aria-label={t("controls.skipDb")}
-          aria-busy={busy === "skip"}
-          aria-disabled={isParallel}
-          title={isParallel ? t("controls.skipDisabledParallel") : undefined}
-          className="group flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-100 to-amber-200 dark:from-amber-900/40 dark:to-amber-800/40 hover:from-amber-500 hover:to-amber-600 text-amber-700 dark:text-amber-300 hover:text-white rounded-lg text-sm font-medium transition-all transform-gpu shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 disabled:hover:scale-100"
-        >
-          {busy === "skip" ? (
-            <>
-              <Loader2 size={16} className="animate-spin" />
-              <span>{t("controls.skipping")}</span>
-            </>
-          ) : (
-            <>
-              <SkipForward size={16} className="group-hover:scale-110 transition-transform" />
-              <span>{t("controls.skipDb")}</span>
             </>
           )}
         </button>

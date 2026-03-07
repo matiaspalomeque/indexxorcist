@@ -10,13 +10,16 @@ import {
   Clock,
   AlertCircle,
   Loader2,
-  Square
+  Square,
+  SkipForward,
 } from "lucide-react";
 import type { DatabaseCardData, DatabaseCardState } from "../../types";
 
 interface Props {
   db: DatabaseCardData;
   delay?: number;
+  onSkip?: () => void;
+  skipPending?: boolean;
 }
 
 const BORDER: Record<DatabaseCardState, string> = {
@@ -68,7 +71,7 @@ function fmt(n: number) {
   return n.toFixed(1);
 }
 
-function DatabaseCardComponent({ db, delay = 0 }: Props) {
+function DatabaseCardComponent({ db, delay = 0, onSkip, skipPending = false }: Props) {
   const t = useT();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const totalIndexes = db.indexes.length;
@@ -81,10 +84,10 @@ function DatabaseCardComponent({ db, delay = 0 }: Props) {
   const StateIcon = STATE_ICON[db.state];
 
   return (
-    <>
+    <div className="relative h-full">
       <button
         onClick={() => setDrawerOpen(true)}
-        className={`group relative w-full text-left border-2 rounded-xl p-6 transition-all duration-300 transform-gpu ${
+        className={`group relative w-full h-full text-left border-2 rounded-xl p-6 transition-all duration-300 transform-gpu ${
           BORDER[db.state]
         } ${BG[db.state]} hover:scale-[1.02] hover:shadow-xl focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 shadow-lg`}
         style={{
@@ -183,13 +186,29 @@ function DatabaseCardComponent({ db, delay = 0 }: Props) {
         )}
       </button>
 
+      {(db.state === "running" || db.state === "queued") && (onSkip || skipPending) && (
+        <button
+          onClick={onSkip}
+          disabled={skipPending}
+          aria-label={t("controls.skipDb")}
+          className={`absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all shadow-sm backdrop-blur-sm border ${
+            skipPending
+              ? "bg-white/70 dark:bg-gray-800/70 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+              : "bg-white/90 dark:bg-gray-800/90 border-amber-400 dark:border-amber-600 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-white dark:hover:bg-amber-600 dark:hover:text-white hover:shadow-md"
+          }`}
+        >
+          {skipPending ? <Loader2 size={12} className="animate-spin" /> : <SkipForward size={12} />}
+          {t("controls.skipDb")}
+        </button>
+      )}
+
       {drawerOpen && (
         <IndexDetailDrawer db={db} onClose={() => setDrawerOpen(false)} />
       )}
-    </>
+    </div>
   );
 }
 
-export const DatabaseCard = memo(DatabaseCardComponent, (prev, next) => 
-  prev.db === next.db && prev.delay === next.delay
+export const DatabaseCard = memo(DatabaseCardComponent, (prev, next) =>
+  prev.db === next.db && prev.delay === next.delay && prev.skipPending === next.skipPending
 );

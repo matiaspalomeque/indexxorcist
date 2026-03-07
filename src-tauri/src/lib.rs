@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tauri::Manager;
 use tokio::sync::{watch, Mutex};
@@ -11,12 +11,16 @@ pub mod models;
 pub enum MaintenanceControl {
     Running,
     Paused,
-    SkipDatabase,
     Stop,
 }
 
+pub struct ProfileControl {
+    pub tx: watch::Sender<MaintenanceControl>,
+    pub skip_set: Arc<Mutex<HashSet<String>>>,
+}
+
 pub struct AppState {
-    pub control_txs: Arc<Mutex<HashMap<String, watch::Sender<MaintenanceControl>>>>,
+    pub control_txs: Arc<Mutex<HashMap<String, ProfileControl>>>,
     /// Serializes profile file reads and writes to prevent concurrent save races.
     pub profile_io_lock: Arc<Mutex<()>>,
     /// SQLite connection for run history persistence.

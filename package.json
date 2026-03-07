@@ -1,14 +1,18 @@
 {
   "name": "indexxorcist",
   "private": true,
-  "version": "0.1.13",
+  "version": "0.1.14",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "bump-version": "bun scripts/bump-version.ts"
+    "bump-version": "bun scripts/bump-version.ts",
+    "clean:frontend": "rm -rf dist",
+    "clean:rust": "cargo clean --manifest-path src-tauri/Cargo.toml",
+    "clean": "bun run clean:frontend && bun run clean:rust",
+    "rebuild": "bun run clean && bun run build"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

@@ -9,7 +9,6 @@ interface Props {
   profileServer: string;
   runState: string;
   isParallel: boolean;
-  runningDbCount?: number;
   startedAtMs: number;
 }
 
@@ -18,15 +17,14 @@ interface RunStateDisplay {
   label: string;
 }
 
-export function OverallProgressBar({ 
-  current, 
+export function OverallProgressBar({
+  current,
   total,
   profileName,
   profileServer,
   runState,
   isParallel,
-  runningDbCount = 0,
-  startedAtMs
+  startedAtMs,
 }: Props) {
   const t = useT();
   const clampedCurrent = total === 0 ? 0 : Math.min(Math.max(current, 0), total);
@@ -84,9 +82,9 @@ export function OverallProgressBar({
                 )}
                 {stateDisplay.label}
               </div>
-              {isParallel && runningDbCount > 1 && (
+              {isParallel && (
                 <span className="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full">
-                  {runningDbCount} running
+                  parallel
                 </span>
               )}
             </div>

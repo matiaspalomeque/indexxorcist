@@ -206,9 +206,6 @@ const en: Translations = {
   "options.parallelDatabasesDesc": "Run multiple databases concurrently",
   "options.maxParallelDatabases": "Max concurrent databases",
 
-  // Skip disabled in parallel mode
-  "controls.skipDisabledParallel": "Skip is not available in parallel mode",
-
   // Update banner
   "update.label": "Update",
   "update.available": "available",
@@ -448,9 +445,6 @@ const esAR: Translations = {
   "options.parallelDatabases": "Procesar bases de datos en paralelo",
   "options.parallelDatabasesDesc": "Ejecutar múltiples bases de datos de forma concurrente",
   "options.maxParallelDatabases": "Máximo de bases de datos concurrentes",
-
-  // Skip disabled in parallel mode
-  "controls.skipDisabledParallel": "Omitir no está disponible en modo paralelo",
 
   // Update banner
   "update.label": "Actualización",
