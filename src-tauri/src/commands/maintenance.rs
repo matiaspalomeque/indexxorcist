@@ -322,6 +322,24 @@ fn make_skipped_result(db_name: &str) -> DatabaseResult {
         errors: vec![],
         critical_failure: false,
         manually_skipped: true,
+        interrupted: false,
+        index_results: vec![],
+    }
+}
+
+fn make_interrupted_result(db_name: &str, duration_secs: f64) -> DatabaseResult {
+    DatabaseResult {
+        database_name: db_name.to_string(),
+        success: false,
+        indexes_processed: 0,
+        indexes_rebuilt: 0,
+        indexes_reorganized: 0,
+        indexes_skipped: 0,
+        total_duration_secs: duration_secs,
+        errors: vec![],
+        critical_failure: false,
+        manually_skipped: false,
+        interrupted: true,
         index_results: vec![],
     }
 }
@@ -373,6 +391,12 @@ pub async fn run_maintenance(
     // Validate thresholds before spawning the task
     if options.reorganize_threshold <= 0.0 || options.rebuild_threshold <= 0.0 {
         return Err("Fragmentation thresholds must be positive".to_string());
+    }
+    if options.retry_max_attempts == 0 {
+        return Err("Retry max attempts must be at least 1".to_string());
+    }
+    if options.parallel_databases && options.max_parallel_databases == 0 {
+        return Err("Max parallel databases must be at least 1".to_string());
     }
 
     // Load full credentials server-side — passwords never travel over IPC
@@ -757,6 +781,7 @@ async fn process_database(
         errors: vec![],
         critical_failure: false,
         manually_skipped: false,
+        interrupted: false,
         index_results: vec![],
     };
 
@@ -781,8 +806,7 @@ async fn process_database(
             }
         }
         _ = wait_for_stop(ctrl_rx) => {
-            result.total_duration_secs = db_start.elapsed().as_secs_f64();
-            return (result, true);
+            return (make_interrupted_result(db_name, db_start.elapsed().as_secs_f64()), true);
         }
         _ = poll_skip_set(skip_set, db_name) => {
             let mut r = make_skipped_result(db_name);
@@ -812,8 +836,7 @@ async fn process_database(
             }
         }
         _ = wait_for_stop(ctrl_rx) => {
-            result.total_duration_secs = db_start.elapsed().as_secs_f64();
-            return (result, true);
+            return (make_interrupted_result(db_name, db_start.elapsed().as_secs_f64()), true);
         }
         _ = poll_skip_set(skip_set, db_name) => {
             result.total_duration_secs = db_start.elapsed().as_secs_f64();
@@ -1083,6 +1106,10 @@ async fn process_database(
 
     result.total_duration_secs = db_start.elapsed().as_secs_f64();
     result.manually_skipped = manually_skipped;
+    result.interrupted = stopped;
+    if stopped {
+        result.success = false;
+    }
 
     (result, stopped)
 }

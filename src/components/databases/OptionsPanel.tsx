@@ -83,6 +83,7 @@ export function OptionsPanel({ settings, onChange }: Props) {
           label={t("options.maxAttempts")}
           value={settings.retry_max_attempts}
           onChange={(v) => set("retry_max_attempts", v)}
+          min={1}
         />
         <NumberOption
           label={t("options.baseDelay")}
@@ -162,6 +163,11 @@ function NumberOption({
   min?: number;
   max?: number;
 }) {
+  const clamp = (nextValue: number) => {
+    const withMin = Math.max(nextValue, min);
+    return max != null ? Math.min(withMin, max) : withMin;
+  };
+
   return (
     <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -173,7 +179,7 @@ function NumberOption({
         value={value}
         min={min}
         max={max}
-        onChange={(e) => onChange(Number(e.target.value) || 0)}
+        onChange={(e) => onChange(clamp(Number(e.target.value) || 0))}
         className="w-full sm:w-28 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-2 py-1 text-sm text-gray-900 dark:text-white text-right focus:outline-none focus:border-blue-500"
       />
     </div>

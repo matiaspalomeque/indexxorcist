@@ -44,6 +44,10 @@ export function ProfileFormModal({ profile, onClose }: Props) {
       setError(t("profileForm.validationError"));
       return;
     }
+    if (isNew && !form.password) {
+      setError(t("profileForm.passwordRequired"));
+      return;
+    }
     setSaving(true);
     try {
       await save(form);

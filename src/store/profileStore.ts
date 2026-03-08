@@ -1,5 +1,9 @@
 import { create } from "zustand";
 import * as api from "../api/tauri";
+import { useDatabaseSelectionStore } from "./databaseSelectionStore";
+import { useMaintenanceStore } from "./maintenanceStore";
+import { useProfileSettingsStore } from "./profileSettingsStore";
+import { useUiStore } from "./uiStore";
 import type { ServerProfile } from "../types";
 
 interface ProfileState {
@@ -32,6 +36,10 @@ export const useProfileStore = create<ProfileState>((set) => ({
 
   remove: async (id) => {
     await api.deleteServerProfile(id);
+    useUiStore.getState().removeProfile(id);
+    useMaintenanceStore.getState().resetProfile(id);
+    useDatabaseSelectionStore.getState().clearProfileSelection(id);
+    useProfileSettingsStore.getState().clearProfileSettings(id);
     set((s) => ({ profiles: s.profiles.filter((p) => p.id !== id) }));
   },
 }));

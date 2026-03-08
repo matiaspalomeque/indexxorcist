@@ -13,12 +13,16 @@ function fmt(secs: number): string {
 function DbRow({ r, t }: { r: DatabaseResult; t: ReturnType<typeof useT> }) {
   const statusColor = r.critical_failure
     ? "text-red-500 dark:text-red-400"
+    : r.interrupted
+    ? "text-orange-600 dark:text-orange-400"
     : r.manually_skipped
     ? "text-amber-600 dark:text-amber-400"
     : "text-green-600 dark:text-green-400";
 
   const statusText = r.critical_failure
     ? t("summary.statusFailed")
+    : r.interrupted
+    ? t("summary.statusStopped")
     : r.manually_skipped
     ? t("summary.statusSkipped")
     : t("summary.statusDone");
@@ -85,7 +89,7 @@ export function ResultsSummary() {
       <div className="mx-auto max-w-[1800px]">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between mb-6">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t("summary.title")}</h2>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white">{t("summary.title")}</h2>
             <p className="text-sm text-gray-700 dark:text-gray-400 mt-0.5">
               {run.profileName} · {run.profileServer}
             </p>

@@ -1,10 +1,18 @@
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
+    font-family: "Geist Variable", system-ui, sans-serif;
     @apply bg-gray-50 text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-100;
+  }
+
+  code, pre, kbd, samp {
+    font-family: "Geist Mono Variable", ui-monospace, monospace;
   }
 
   /* Hide native number input spinners */

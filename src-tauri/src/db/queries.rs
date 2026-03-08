@@ -24,6 +24,7 @@ pub const GET_FRAGMENTED_INDEXES: &str = "
     INNER JOIN sys.tables AS t ON i.object_id = t.object_id
     INNER JOIN sys.schemas AS s ON t.schema_id = s.schema_id
     WHERE ips.index_id > 0
+      AND ips.partition_number = 1  -- filter to first partition to avoid duplicates from partitioned indexes
       AND ips.page_count > 100  -- skip tiny indexes; maintenance overhead isn't worth it below ~800 KB
       AND t.is_ms_shipped = 0
       AND i.name IS NOT NULL

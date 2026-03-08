@@ -78,7 +78,7 @@ export function Sidebar() {
       </div>
 
       <div className="flex-1 p-3 min-h-0">
-        <p className="text-[11px] uppercase tracking-wide text-gray-600 dark:text-gray-500 px-2 mb-2">
+        <p className="text-2xs uppercase tracking-wide text-gray-600 dark:text-gray-500 px-2 mb-2">
           {t("sidebar.connectedTabs")}
         </p>
         {connectedProfileIds.length === 0 ? (
@@ -110,10 +110,10 @@ export function Sidebar() {
                       <p className="text-xs font-medium text-gray-900 dark:text-white truncate">
                         {profile?.name ?? runsByProfile[profileId]?.profileName ?? profileId}
                       </p>
-                      <p className="text-[11px] text-gray-700 dark:text-gray-400 truncate">
+                      <p className="text-2xs text-gray-700 dark:text-gray-400 truncate">
                         {profile?.server ?? runsByProfile[profileId]?.profileServer ?? "Server"}
                       </p>
-                      <p className={`text-[11px] mt-0.5 ${runStateColor(runState)}`}>
+                      <p className={`text-2xs mt-0.5 ${runStateColor(runState)}`}>
                         {runStateLabel(runState, t)}
                       </p>
                     </button>

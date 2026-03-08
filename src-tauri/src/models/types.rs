@@ -209,6 +209,8 @@ pub struct DatabaseResult {
     pub critical_failure: bool,
     pub manually_skipped: bool,
     #[serde(default)]
+    pub interrupted: bool,
+    #[serde(default)]
     pub index_results: Vec<IndexResult>,
 }
 
