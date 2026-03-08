@@ -17,7 +17,7 @@ export function ProfileList() {
       <div className="mx-auto max-w-[1700px]">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t("profiles.title")}</h2>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white">{t("profiles.title")}</h2>
             <p className="text-sm text-gray-700 dark:text-gray-400 mt-0.5">
               {t("profiles.subtitle")}
             </p>

@@ -238,22 +238,22 @@ export function HistoryView() {
                         <td className="py-3 pr-4 text-gray-700 dark:text-gray-300 font-mono text-xs">
                           {r.server}
                         </td>
-                        <td className="py-3 pr-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                        <td className="py-3 pr-4 text-gray-700 dark:text-gray-300 whitespace-nowrap text-xs">
                           {formatDate(r.started_at)}
                         </td>
-                        <td className="py-3 pr-4 text-gray-700 dark:text-gray-300">
+                        <td className="py-3 pr-4 text-gray-700 dark:text-gray-300 text-xs">
                           {formatDuration(r.total_duration_secs)}
                         </td>
-                        <td className="py-3 pr-4 text-gray-700 dark:text-gray-300">
+                        <td className="py-3 pr-4 text-gray-700 dark:text-gray-300 text-xs">
                           {r.databases_processed}
                         </td>
-                        <td className="py-3 pr-4 text-blue-600 dark:text-blue-400">
+                        <td className="py-3 pr-4 text-blue-600 dark:text-blue-400 text-xs">
                           {r.total_indexes_rebuilt}
                         </td>
-                        <td className="py-3 pr-4 text-purple-600 dark:text-purple-400">
+                        <td className="py-3 pr-4 text-purple-600 dark:text-purple-400 text-xs">
                           {r.total_indexes_reorganized}
                         </td>
-                        <td className="py-3 pr-4 text-gray-600 dark:text-gray-400">
+                        <td className="py-3 pr-4 text-gray-600 dark:text-gray-400 text-xs">
                           {r.total_indexes_skipped}
                         </td>
                       </tr>
