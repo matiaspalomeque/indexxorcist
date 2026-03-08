@@ -10,6 +10,7 @@ interface ProfileSettingsState {
     key: K,
     value: MaintenanceOptions[K]
   ) => void;
+  clearProfileSettings: (profileId: string) => void;
 }
 
 export const useProfileSettingsStore = create<ProfileSettingsState>()(
@@ -32,6 +33,11 @@ export const useProfileSettingsStore = create<ProfileSettingsState>()(
             },
           },
         })),
+      clearProfileSettings: (profileId) =>
+        set((state) => {
+          const { [profileId]: _removed, ...rest } = state.byProfile;
+          return { byProfile: rest };
+        }),
     }),
     {
       name: "indexxorcist-profile-settings-v1",

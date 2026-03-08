@@ -341,7 +341,9 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
 
           return {
             ...db,
-            state: payload.result.manually_skipped
+            state: payload.result.interrupted
+              ? "stopped"
+              : payload.result.manually_skipped
               ? "skipped"
               : payload.result.critical_failure
               ? "error"

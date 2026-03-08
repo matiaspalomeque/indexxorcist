@@ -23,6 +23,7 @@ const COL_COUNT = 9; // 8 data columns + 1 expand chevron
 
 function dbStatusLabel(r: DatabaseResult, t: ReturnType<typeof useT>): { text: string; color: string } {
   if (r.critical_failure) return { text: t("history.statusFailed"), color: "text-red-500 dark:text-red-400" };
+  if (r.interrupted) return { text: t("history.statusStopped"), color: "text-orange-600 dark:text-orange-400" };
   if (r.manually_skipped) return { text: t("history.statusSkipped"), color: "text-amber-600 dark:text-amber-400" };
   return { text: t("history.statusDone"), color: "text-green-600 dark:text-green-400" };
 }

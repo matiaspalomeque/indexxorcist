@@ -13,12 +13,16 @@ function fmt(secs: number): string {
 function DbRow({ r, t }: { r: DatabaseResult; t: ReturnType<typeof useT> }) {
   const statusColor = r.critical_failure
     ? "text-red-500 dark:text-red-400"
+    : r.interrupted
+    ? "text-orange-600 dark:text-orange-400"
     : r.manually_skipped
     ? "text-amber-600 dark:text-amber-400"
     : "text-green-600 dark:text-green-400";
 
   const statusText = r.critical_failure
     ? t("summary.statusFailed")
+    : r.interrupted
+    ? t("summary.statusStopped")
     : r.manually_skipped
     ? t("summary.statusSkipped")
     : t("summary.statusDone");

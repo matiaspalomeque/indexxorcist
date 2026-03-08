@@ -10,6 +10,7 @@ interface UiState {
   setActiveProfileId: (id: string | null) => void;
   openProfileTab: (id: string) => void;
   closeProfileTab: (id: string) => void;
+  removeProfile: (id: string) => void;
   goToProfilesHome: () => void;
 }
 
@@ -72,6 +73,28 @@ export const useUiStore = create<UiState>((set) => ({
     }),
 
   closeProfileTab: (id) =>
+    set((state) => {
+      const { [id]: _removed, ...remainingViews } = state.profileViews;
+      const connectedProfileIds = state.connectedProfileIds.filter(
+        (profileId) => profileId !== id
+      );
+
+      if (state.activeProfileId !== id) {
+        return { connectedProfileIds, profileViews: remainingViews };
+      }
+
+      const nextActiveId = connectedProfileIds[connectedProfileIds.length - 1] ?? null;
+      const nextView = nextActiveId ? remainingViews[nextActiveId] ?? "databases" : "profiles";
+
+      return {
+        connectedProfileIds,
+        profileViews: remainingViews,
+        activeProfileId: nextActiveId,
+        currentView: nextView,
+      };
+    }),
+
+  removeProfile: (id) =>
     set((state) => {
       const { [id]: _removed, ...remainingViews } = state.profileViews;
       const connectedProfileIds = state.connectedProfileIds.filter(

@@ -82,6 +82,7 @@ export interface DatabaseResult {
   errors: string[];
   critical_failure: boolean;
   manually_skipped: boolean;
+  interrupted: boolean;
   index_results: IndexResult[];
 }
 
