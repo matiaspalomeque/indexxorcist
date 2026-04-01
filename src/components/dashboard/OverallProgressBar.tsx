@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useT } from "../../i18n";
 import { Activity, Clock, Timer } from "lucide-react";
 import { useElapsedTime, formatElapsedTime, calculateETA } from "../../hooks/useElapsedTime";
@@ -17,7 +18,7 @@ interface RunStateDisplay {
   label: string;
 }
 
-export function OverallProgressBar({
+export const OverallProgressBar = memo(function OverallProgressBar({
   current,
   total,
   profileName,
@@ -127,4 +128,4 @@ export function OverallProgressBar({
       </div>
     </div>
   );
-}
+});

@@ -13,6 +13,46 @@ import type {
   ServerProfile,
 } from "../types";
 
+// ---------------------------------------------------------------------------
+// Microtask batching: reduces re-renders during burst index events (thousands
+// of indexes arriving in milliseconds). Without batching, each event triggers
+// a separate render cycle; batching defers updates until the call stack clears,
+// coalescing them into one Zustand subscription notification.
+// ---------------------------------------------------------------------------
+
+type MutationFn = (state: MaintenanceState) => Partial<MaintenanceState>;
+let _pendingMutations: MutationFn[] = [];
+let _flushScheduled = false;
+let _storeSet: ((fn: (s: MaintenanceState) => MaintenanceState) => void) | null = null;
+
+function enqueue(mutation: MutationFn): void {
+  _pendingMutations.push(mutation);
+  if (!_flushScheduled) {
+    _flushScheduled = true;
+    queueMicrotask(_flush);
+  }
+}
+
+function _flush(): void {
+  _flushScheduled = false;
+  const batch = _pendingMutations;
+  _pendingMutations = [];
+  if (batch.length === 0 || !_storeSet) return;
+  _storeSet((state) => {
+    let current: MaintenanceState = state;
+    for (const mutation of batch) {
+      current = { ...current, ...mutation(current) } as MaintenanceState;
+    }
+    return current;
+  });
+}
+
+/** Reset batch queue — intended for use in tests only. */
+export function _resetBatchQueue(): void {
+  _pendingMutations = [];
+  _flushScheduled = false;
+}
+
 interface DatabaseCardDataInternal extends DatabaseCardData {
   indexLookup: Record<string, number>;
 }
@@ -185,7 +225,9 @@ function withRun(
   };
 }
 
-export const useMaintenanceStore = create<MaintenanceState>((set) => ({
+export const useMaintenanceStore = create<MaintenanceState>((set) => {
+  _storeSet = set;
+  return {
   byProfile: {},
 
   startRun: (profile, databaseNames, isParallel) => {
@@ -260,18 +302,17 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
       }),
     })),
 
-  handleIndexFound: (payload) =>
-    set((state) => {
-      const detail: IndexDetail = { ...payload.index, status: "pending" };
-      return {
-        byProfile: withRun(state.byProfile, payload.profile_id, (run) =>
-          withDb(run, payload.index.database_name, (db) => addIndexIfMissing(db, detail))
-        ),
-      };
-    }),
+  handleIndexFound: (payload) => {
+    const detail: IndexDetail = { ...payload.index, status: "pending" };
+    enqueue((state) => ({
+      byProfile: withRun(state.byProfile, payload.profile_id, (run) =>
+        withDb(run, payload.index.database_name, (db) => addIndexIfMissing(db, detail))
+      ),
+    }));
+  },
 
   handleIndexAction: (payload) =>
-    set((state) => ({
+    enqueue((state) => ({
       byProfile: withRun(state.byProfile, payload.profile_id, (run) =>
         withDb(run, payload.db_name, (db) =>
           updateIndexIfFound(
@@ -286,7 +327,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
     })),
 
   handleIndexComplete: (payload) =>
-    set((state) => ({
+    enqueue((state) => ({
       byProfile: withRun(state.byProfile, payload.profile_id, (run) =>
         withDb(run, payload.db_name, (db) => {
           const isSkip = payload.action === "SKIP";
@@ -305,25 +346,28 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
             })
           );
 
+          // Only count if the index was tracked (updateIndexIfFound returns
+          // the same reference when the key is missing).
+          const found = dbWithIndex !== db;
           return {
             ...dbWithIndex,
-            indexes_processed: db.indexes_processed + 1,
+            indexes_processed: found ? db.indexes_processed + 1 : db.indexes_processed,
             indexes_rebuilt:
-              payload.action === "REBUILD" && payload.success
+              found && payload.action === "REBUILD" && payload.success
                 ? db.indexes_rebuilt + 1
                 : db.indexes_rebuilt,
             indexes_reorganized:
-              payload.action === "REORGANIZE" && payload.success
+              found && payload.action === "REORGANIZE" && payload.success
                 ? db.indexes_reorganized + 1
                 : db.indexes_reorganized,
-            indexes_skipped: isSkip ? db.indexes_skipped + 1 : db.indexes_skipped,
+            indexes_skipped: found && isSkip ? db.indexes_skipped + 1 : db.indexes_skipped,
           };
         })
       ),
     })),
 
   handleDbComplete: (payload) =>
-    set((state) => ({
+    enqueue((state) => ({
       byProfile: withRun(state.byProfile, payload.profile_id, (run) =>
         withDb(run, payload.result.database_name, (db) => {
           // A database is "interrupted" when it was stopped before all found indexes were
@@ -350,16 +394,16 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
               : wasInterrupted
               ? "stopped"
               : "done",
-            indexes_processed: payload.result.indexes_processed,
-            indexes_rebuilt: payload.result.indexes_rebuilt,
-            indexes_reorganized: payload.result.indexes_reorganized,
-            indexes_skipped: payload.result.indexes_skipped,
+            indexes_processed: Math.min(payload.result.indexes_processed, db.indexes.length),
+            indexes_rebuilt: Math.min(payload.result.indexes_rebuilt, db.indexes.length),
+            indexes_reorganized: Math.min(payload.result.indexes_reorganized, db.indexes.length),
+            indexes_skipped: Math.min(payload.result.indexes_skipped, db.indexes.length),
             duration_secs: payload.result.total_duration_secs,
             errors: payload.result.errors,
           };
         })
       ),
-    })),
+    }) as Partial<MaintenanceState>),
 
   handleFinished: (payload) =>
     set((state) => ({
@@ -389,7 +433,8 @@ export const useMaintenanceStore = create<MaintenanceState>((set) => ({
         ),
       })),
     })),
-}));
+  };
+});
 
 export function isActiveRunState(runState: RunState): boolean {
   return runState === "running" || runState === "paused";

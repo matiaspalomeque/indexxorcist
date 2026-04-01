@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 interface Props {
   processed: number;
   total: number;
@@ -16,7 +18,7 @@ const COLOR_MAP = {
   orange: { stroke: '#f97316', bg: '#1f2937' },
 };
 
-export function ProgressRing({ 
+export const ProgressRing = memo(function ProgressRing({ 
   processed, 
   total, 
   size = 48, 
@@ -74,4 +76,4 @@ export function ProgressRing({
       )}
     </div>
   );
-}
+});

@@ -18,7 +18,7 @@ import type { DatabaseCardData, DatabaseCardState } from "../../types";
 interface Props {
   db: DatabaseCardData;
   delay?: number;
-  onSkip?: () => void;
+  onSkip?: (dbName: string) => void;
   skipPending?: boolean;
 }
 
@@ -75,7 +75,7 @@ function DatabaseCardComponent({ db, delay = 0, onSkip, skipPending = false }: P
   const t = useT();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const totalIndexes = db.indexes.length;
-  const processed = db.indexes_processed;
+  const processed = Math.min(db.indexes_processed, totalIndexes);
   const completedWithoutIndexes =
     totalIndexes === 0 &&
     (db.state === "done" || db.state === "error" || db.state === "skipped");
@@ -188,7 +188,7 @@ function DatabaseCardComponent({ db, delay = 0, onSkip, skipPending = false }: P
 
       {(db.state === "running" || db.state === "queued") && (onSkip || skipPending) && (
         <button
-          onClick={onSkip}
+          onClick={() => onSkip?.(db.name)}
           disabled={skipPending}
           aria-label={t("controls.skipDb")}
           className={`absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all shadow-sm backdrop-blur-sm border ${
@@ -210,5 +210,8 @@ function DatabaseCardComponent({ db, delay = 0, onSkip, skipPending = false }: P
 }
 
 export const DatabaseCard = memo(DatabaseCardComponent, (prev, next) =>
-  prev.db === next.db && prev.delay === next.delay && prev.skipPending === next.skipPending
+  prev.db === next.db &&
+  prev.delay === next.delay &&
+  prev.skipPending === next.skipPending &&
+  prev.onSkip === next.onSkip
 );
