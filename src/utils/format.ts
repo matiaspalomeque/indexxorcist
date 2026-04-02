@@ -1,4 +1,4 @@
-import type { DatabaseResult } from "../types";
+import type { DatabaseResult, IndexResult } from "../types";
 
 export function formatDuration(secs: number): string {
   const h = Math.floor(secs / 3600);
@@ -16,5 +16,13 @@ export function dbStatusInfo(r: DatabaseResult): { labelKey: string; color: stri
     return { labelKey: "statusStopped", color: "text-orange-600 dark:text-orange-400" };
   if (r.manually_skipped)
     return { labelKey: "statusSkipped", color: "text-amber-600 dark:text-amber-400" };
+  return { labelKey: "statusDone", color: "text-green-600 dark:text-green-400" };
+}
+
+export function indexStatusInfo(r: IndexResult): { labelKey: string; color: string } {
+  if (!r.success)
+    return { labelKey: "statusFailed", color: "text-red-500 dark:text-red-400" };
+  if (r.action === "SKIP")
+    return { labelKey: "statusSkipped", color: "text-gray-500 dark:text-gray-400" };
   return { labelKey: "statusDone", color: "text-green-600 dark:text-green-400" };
 }

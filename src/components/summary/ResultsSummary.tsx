@@ -98,14 +98,14 @@ export function ResultsSummary() {
     );
   };
 
-  const columnDefs = useMemo(() => [
-    { key: "database_name" as SummaryCol, label: t("summary.colDatabase") },
-    { key: "status" as SummaryCol, label: t("summary.colStatus") },
-    { key: "indexes_rebuilt" as SummaryCol, label: t("summary.colRebuilt") },
-    { key: "indexes_reorganized" as SummaryCol, label: t("summary.colReorganized") },
-    { key: "indexes_skipped" as SummaryCol, label: t("summary.colSkipped") },
-    { key: "total_duration_secs" as SummaryCol, label: t("summary.colDuration") },
-    { key: "errors" as SummaryCol, label: t("summary.colErrors") },
+  const columnDefs = useMemo((): { key: SummaryCol; label: string }[] => [
+    { key: "database_name", label: t("summary.colDatabase") },
+    { key: "status", label: t("summary.colStatus") },
+    { key: "indexes_rebuilt", label: t("summary.colRebuilt") },
+    { key: "indexes_reorganized", label: t("summary.colReorganized") },
+    { key: "indexes_skipped", label: t("summary.colSkipped") },
+    { key: "total_duration_secs", label: t("summary.colDuration") },
+    { key: "errors", label: t("summary.colErrors") },
   ], [t]);
 
   return (

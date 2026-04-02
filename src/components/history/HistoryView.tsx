@@ -2,10 +2,10 @@ import { ChevronDown, ChevronRight, Download, Search, Trash2 } from "lucide-reac
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useT } from "../../i18n";
 import { useHistoryStore } from "../../store/historyStore";
-import type { IndexResult, RunRecord } from "../../types";
+import type { RunRecord } from "../../types";
 import { exportRunRecordsToCsv } from "../../utils/export";
 import { EMPTY_FILTERS, filterRecords, type HistoryFilters } from "../../utils/filter";
-import { dbStatusInfo, formatDuration } from "../../utils/format";
+import { dbStatusInfo, formatDuration, indexStatusInfo } from "../../utils/format";
 import { sortData, useSortableColumns } from "../../utils/sort";
 import { SortableHeader } from "../shared/SortableHeader";
 
@@ -19,12 +19,6 @@ const COL_COUNT = 9;
 
 const TH_CLASS =
   "text-left py-2 pr-4 text-xs font-medium text-gray-600 dark:text-gray-500 uppercase tracking-wide whitespace-nowrap";
-
-function indexStatusLabel(r: IndexResult, t: ReturnType<typeof useT>): { text: string; color: string } {
-  if (!r.success) return { text: t("history.statusFailed"), color: "text-red-500 dark:text-red-400" };
-  if (r.action === "SKIP") return { text: t("history.statusSkipped"), color: "text-gray-500 dark:text-gray-400" };
-  return { text: t("history.statusDone"), color: "text-green-600 dark:text-green-400" };
-}
 
 function ExpandedDetail({ record, t }: { record: RunRecord; t: ReturnType<typeof useT> }) {
   const dbResults = record.database_results;
@@ -84,14 +78,14 @@ function ExpandedDetail({ record, t }: { record: RunRecord; t: ReturnType<typeof
                       </thead>
                       <tbody>
                         {db.index_results.map((idx) => {
-                          const idxStatus = indexStatusLabel(idx, t);
+                          const { labelKey: idxLabelKey, color: idxColor } = indexStatusInfo(idx);
                           return (
                             <tr key={`${idx.schema_name}.${idx.table_name}.${idx.index_name}`} className="border-t border-gray-100 dark:border-gray-800/40">
                               <td className="px-4 py-1.5 font-mono text-gray-700 dark:text-gray-300">{idx.index_name}</td>
                               <td className="px-4 py-1.5 text-gray-600 dark:text-gray-400">{idx.schema_name}.{idx.table_name}</td>
                               <td className="px-4 py-1.5 text-right text-gray-600 dark:text-gray-400">{idx.fragmentation_percent.toFixed(1)}%</td>
                               <td className="px-4 py-1.5 text-gray-600 dark:text-gray-400">{idx.action}</td>
-                              <td className={`px-4 py-1.5 font-medium ${idxStatus.color}`}>{idxStatus.text}</td>
+                              <td className={`px-4 py-1.5 font-medium ${idxColor}`}>{t(`history.${idxLabelKey}`)}</td>
                               <td className="px-4 py-1.5 text-right text-gray-600 dark:text-gray-400">
                                 {idx.duration_secs > 0 ? formatDuration(idx.duration_secs) : "—"}
                               </td>
@@ -121,8 +115,9 @@ type HistoryCol =
   | "total_indexes_reorganized"
   | "total_indexes_skipped";
 
+// ISO 8601 strings sort lexicographically — no need to parse into Date objects
 const HISTORY_SORT_ACCESSORS: Partial<Record<HistoryCol, (r: RunRecord) => number | string>> = {
-  started_at: (r) => new Date(r.started_at).getTime(),
+  started_at: (r) => r.started_at,
 };
 
 export function HistoryView() {
@@ -167,15 +162,15 @@ export function HistoryView() {
   const hasActiveFilters =
     filters.search !== "" || filters.dateFrom !== "" || filters.dateTo !== "" || filters.status !== "all";
 
-  const columnDefs = useMemo(() => [
-    { key: "profile_name" as HistoryCol, label: t("history.colProfile") },
-    { key: "server" as HistoryCol, label: t("history.colServer") },
-    { key: "started_at" as HistoryCol, label: t("history.colStarted") },
-    { key: "total_duration_secs" as HistoryCol, label: t("history.colDuration") },
-    { key: "databases_processed" as HistoryCol, label: t("history.colDbs") },
-    { key: "total_indexes_rebuilt" as HistoryCol, label: t("history.colRebuilt") },
-    { key: "total_indexes_reorganized" as HistoryCol, label: t("history.colReorganized") },
-    { key: "total_indexes_skipped" as HistoryCol, label: t("history.colSkipped") },
+  const columnDefs = useMemo((): { key: HistoryCol; label: string }[] => [
+    { key: "profile_name", label: t("history.colProfile") },
+    { key: "server", label: t("history.colServer") },
+    { key: "started_at", label: t("history.colStarted") },
+    { key: "total_duration_secs", label: t("history.colDuration") },
+    { key: "databases_processed", label: t("history.colDbs") },
+    { key: "total_indexes_rebuilt", label: t("history.colRebuilt") },
+    { key: "total_indexes_reorganized", label: t("history.colReorganized") },
+    { key: "total_indexes_skipped", label: t("history.colSkipped") },
   ], [t]);
 
   return (

@@ -65,7 +65,7 @@
     color: black !important;
   }
 
-  /* Break out of the h-screen overflow-hidden flex layout */
+  /* Override h-screen overflow-hidden that clips printed content */
   body > div,
   body > div > div {
     display: block !important;
@@ -81,7 +81,6 @@
     height: auto !important;
   }
 
-  /* Content scroll container must also be visible */
   main > div {
     overflow: visible !important;
     height: auto !important;
