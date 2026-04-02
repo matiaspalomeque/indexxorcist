@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { DatabaseCard } from "./DatabaseCard";
 import { OverallProgressBar } from "./OverallProgressBar";
 import { RunControls } from "./RunControls";
@@ -7,6 +7,7 @@ import { useT } from "../../i18n";
 import * as api from "../../api/tauri";
 import { useMaintenanceStore } from "../../store/maintenanceStore";
 import { useUiStore } from "../../store/uiStore";
+import { computeStaggerMs } from "../../utils/stagger";
 
 export function MaintenanceDashboard() {
   const t = useT();
@@ -72,6 +73,37 @@ export function MaintenanceDashboard() {
     }
   }, [activeProfileId, setDatabaseState]);
 
+  const isParallel = run?.isParallel ?? false;
+  const totalDbs = run?.totalDbs ?? 0;
+
+  const { doneCount, runningDbs } = useMemo(() => {
+    if (!databases) return { doneCount: 0, runningDbs: [] as NonNullable<typeof databases> };
+    let done = 0;
+    const running: NonNullable<typeof databases> = [];
+    for (const db of databases) {
+      if (db.state === "done" || db.state === "error" || db.state === "skipped" || db.state === "stopped") {
+        done++;
+      } else if (db.state === "running") {
+        running.push(db);
+      }
+    }
+    return { doneCount: done, runningDbs: running };
+  }, [databases]);
+
+  const overallCurrent = useMemo(() => {
+    const dbProgress = (db: { indexes: unknown[]; indexes_processed: number }) =>
+      db.indexes.length === 0 ? 0 : Math.min(db.indexes_processed / db.indexes.length, 1);
+    const runningProgress = isParallel
+      ? runningDbs.reduce((sum, db) => sum + dbProgress(db), 0)
+      : dbProgress(runningDbs[0] ?? { indexes: [], indexes_processed: 0 });
+    return Math.min(doneCount + runningProgress, totalDbs);
+  }, [doneCount, runningDbs, isParallel, totalDbs]);
+
+  const staggerMs = useMemo(
+    () => computeStaggerMs(databases?.length ?? 0),
+    [databases?.length],
+  );
+
   if (!activeProfileId) {
     return (
       <div className="p-6 text-gray-700 dark:text-gray-400 text-sm">
@@ -87,25 +119,6 @@ export function MaintenanceDashboard() {
       </div>
     );
   }
-
-  let doneCount = 0;
-  const runningDbs: typeof run.databases = [];
-  for (const db of run.databases) {
-    if (db.state === "done" || db.state === "error" || db.state === "skipped" || db.state === "stopped") {
-      doneCount++;
-    } else if (db.state === "running") {
-      runningDbs.push(db);
-    }
-  }
-
-  const dbProgress = (db: { indexes: unknown[]; indexes_processed: number }) =>
-    db.indexes.length === 0 ? 0 : Math.min(db.indexes_processed / db.indexes.length, 1);
-
-  const runningProgress = run.isParallel
-    ? runningDbs.reduce((sum, db) => sum + dbProgress(db), 0)
-    : dbProgress(runningDbs[0] ?? { indexes: [], indexes_processed: 0 });
-
-  const overallCurrent = Math.min(doneCount + runningProgress, run.totalDbs);
 
   return (
     <div className="h-full flex flex-col" role="region" aria-label="Maintenance Dashboard">
@@ -171,8 +184,8 @@ export function MaintenanceDashboard() {
                   <DatabaseCard
                     key={`${run.profileId}:${db.name}`}
                     db={db}
-                    delay={idx * 50}
-                    onSkip={(db.state === "running" || db.state === "queued") && !pendingSkips.has(db.name) ? () => handleSkip(db.name) : undefined}
+                    delay={Math.round(idx * staggerMs)}
+                    onSkip={(db.state === "running" || db.state === "queued") && !pendingSkips.has(db.name) ? handleSkip : undefined}
                     skipPending={pendingSkips.has(db.name) && db.state === "running"}
                   />
                 ))}
@@ -202,7 +215,7 @@ export function MaintenanceDashboard() {
   );
 }
 
-function StatCard({
+const StatCard = memo(function StatCard({
   label,
   value,
   color,
@@ -217,4 +230,4 @@ function StatCard({
       <p className="text-xs text-gray-600 dark:text-gray-500 mt-1">{label}</p>
     </div>
   );
-}
+});

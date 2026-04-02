@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { useRef } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import { useDialogA11y } from "../../hooks/useDialogA11y";
 import { useT } from "../../i18n";
 import type { DatabaseCardData, IndexDetail } from "../../types";
@@ -31,7 +31,7 @@ function Badge({ text, cls }: { text: string; cls: string }) {
   );
 }
 
-function IndexRow({ idx }: { idx: IndexDetail }) {
+const IndexRow = memo(function IndexRow({ idx }: { idx: IndexDetail }) {
   return (
     <tr className="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
       <td className="px-3 py-2 text-xs text-gray-700 dark:text-gray-400 font-mono whitespace-nowrap">
@@ -80,12 +80,16 @@ function IndexRow({ idx }: { idx: IndexDetail }) {
       </td>
     </tr>
   );
-}
+});
 
 export function IndexDetailDrawer({ db, onClose }: Props) {
   const t = useT();
   const dialogRef = useRef<HTMLDivElement>(null);
   useDialogA11y(dialogRef, onClose);
+  const PAGE_SIZE = 100;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const visibleIndexes = useMemo(() => db.indexes.slice(0, visibleCount), [db.indexes, visibleCount]);
+  const hasMore = db.indexes.length > visibleCount;
   const headers = [
     t("drawer.colSchemaTable"),
     t("drawer.colIndex"),
@@ -165,11 +169,21 @@ export function IndexDetailDrawer({ db, onClose }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {db.indexes.map((idx) => (
+                {visibleIndexes.map((idx) => (
                   <IndexRow key={`${idx.schema_name}.${idx.table_name}.${idx.index_name}`} idx={idx} />
                 ))}
               </tbody>
             </table>
+          )}
+          {hasMore && (
+            <div className="flex justify-center py-3 border-t border-gray-200 dark:border-gray-800">
+              <button
+                onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                className="px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                {t("drawer.showMore", { count: db.indexes.length - visibleCount })}
+              </button>
+            </div>
           )}
         </div>
       </div>
