@@ -79,6 +79,8 @@ pub fn run() {
             });
             #[cfg(desktop)]
             app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+            app.handle().plugin(tauri_plugin_dialog::init())?;
+            app.handle().plugin(tauri_plugin_fs::init())?;
             app.handle().plugin(tauri_plugin_process::init())?;
             Ok(())
         })

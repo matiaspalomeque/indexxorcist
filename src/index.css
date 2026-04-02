@@ -52,3 +52,72 @@
     transform: translateY(0);
   }
 }
+
+@media print {
+  aside,
+  nav,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Break out of the h-screen overflow-hidden flex layout */
+  body > div,
+  body > div > div {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  main {
+    display: block !important;
+    overflow: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Content scroll container must also be visible */
+  main > div {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  th,
+  td {
+    border: 1px solid #d1d5db;
+    padding: 4px 8px;
+  }
+
+  .dark\:text-white,
+  .dark\:text-gray-100,
+  .dark\:text-gray-200,
+  .dark\:text-gray-300 {
+    color: black !important;
+  }
+
+  .dark\:text-gray-400,
+  .dark\:text-gray-500 {
+    color: #374151 !important;
+  }
+
+  .dark\:bg-gray-900,
+  .dark\:bg-gray-950,
+  .dark\:bg-gray-800 {
+    background: white !important;
+  }
+
+  .dark\:border-gray-800,
+  .dark\:border-gray-700 {
+    border-color: #d1d5db !important;
+  }
+}

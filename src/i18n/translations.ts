@@ -245,6 +245,20 @@ const en: Translations = {
   "history.colFrag": "Frag%",
   "history.colAction": "Action",
   "history.colStatus": "Status",
+
+  // History search & filter
+  "history.searchPlaceholder": "Search profiles, servers, databases...",
+  "history.dateFrom": "From",
+  "history.dateTo": "To",
+  "history.statusAll": "All",
+  "history.statusHasErrors": "Has errors",
+  "history.statusAllSuccess": "All successful",
+  "history.noFilterResults": "No runs match the current filters.",
+  "history.exportCsv": "Export CSV",
+
+  // Summary export
+  "summary.exportCsv": "Export CSV",
+  "summary.print": "Print / PDF",
 };
 
 const esAR: Translations = {
@@ -489,6 +503,20 @@ const esAR: Translations = {
   "history.colFrag": "Frag%",
   "history.colAction": "Acción",
   "history.colStatus": "Estado",
+
+  // History search & filter
+  "history.searchPlaceholder": "Buscar perfiles, servidores, bases de datos...",
+  "history.dateFrom": "Desde",
+  "history.dateTo": "Hasta",
+  "history.statusAll": "Todos",
+  "history.statusHasErrors": "Con errores",
+  "history.statusAllSuccess": "Todos exitosos",
+  "history.noFilterResults": "Ninguna ejecución coincide con los filtros actuales.",
+  "history.exportCsv": "Exportar CSV",
+
+  // Summary export
+  "summary.exportCsv": "Exportar CSV",
+  "summary.print": "Imprimir / PDF",
 };
 
 export const translations: Record<Lang, Translations> = { en, "es-AR": esAR };
