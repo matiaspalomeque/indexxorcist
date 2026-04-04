@@ -7,6 +7,7 @@ import { exportRunRecordsToCsv } from "../../utils/export";
 import { EMPTY_FILTERS, filterRecords, type HistoryFilters } from "../../utils/filter";
 import { dbStatusInfo, formatDuration, indexStatusInfo } from "../../utils/format";
 import { sortData, useSortableColumns } from "../../utils/sort";
+import { ConfirmDialog } from "../shared/ConfirmDialog";
 import { SortableHeader } from "../shared/SortableHeader";
 
 const INITIAL_HISTORY_LIMIT = 100;
@@ -123,7 +124,7 @@ const HISTORY_SORT_ACCESSORS: Partial<Record<HistoryCol, (r: RunRecord) => numbe
 export function HistoryView() {
   const t = useT();
   const { records, loading, error, loadHistory, clearHistory } = useHistoryStore();
-  const [confirming, setConfirming] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [filters, setFilters] = useState<HistoryFilters>(EMPTY_FILTERS);
   const { sortConfig, handleSort } = useSortableColumns<HistoryCol>();
@@ -143,11 +144,7 @@ export function HistoryView() {
   );
 
   const handleClear = async () => {
-    if (!confirming) {
-      setConfirming(true);
-      return;
-    }
-    setConfirming(false);
+    setShowClearConfirm(false);
     await clearHistory();
   };
 
@@ -189,24 +186,12 @@ export function HistoryView() {
                 <Download size={14} />
                 {t("history.exportCsv")}
               </button>
-              {confirming && (
-                <button
-                  onClick={() => setConfirming(false)}
-                  className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                >
-                  {t("history.cancel")}
-                </button>
-              )}
               <button
-                onClick={handleClear}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                  confirming
-                    ? "text-white bg-red-600 border-red-600 hover:bg-red-700"
-                    : "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40"
-                }`}
+                onClick={() => setShowClearConfirm(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border transition-colors text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40"
               >
                 <Trash2 size={14} />
-                {confirming ? t("history.confirmClear") : t("history.clearAll")}
+                {t("history.clearAll")}
               </button>
             </div>
           )}
@@ -345,6 +330,18 @@ export function HistoryView() {
           </div>
         )}
       </div>
+
+      {showClearConfirm && (
+        <ConfirmDialog
+          title={t("confirm.clearHistoryTitle")}
+          message={t("confirm.clearHistoryMessage")}
+          confirmLabel={t("confirm.clearHistoryConfirm")}
+          cancelLabel={t("confirm.cancel")}
+          variant="danger"
+          onConfirm={() => void handleClear()}
+          onCancel={() => setShowClearConfirm(false)}
+        />
+      )}
     </div>
   );
 }
