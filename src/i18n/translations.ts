@@ -271,6 +271,12 @@ const en: Translations = {
   "confirm.stopMaintenanceTitle": "Stop Maintenance",
   "confirm.stopMaintenanceMessage": "Are you sure you want to stop the running maintenance? Progress on the current database will be lost.",
   "confirm.stopMaintenanceConfirm": "Stop",
+
+  // Notifications
+  "notification.finishedTitle": "Maintenance Complete",
+  "notification.finishedBody": "{profile}: {rebuilt} rebuilt, {reorganized} reorganized in {duration}",
+  "notification.errorTitle": "Maintenance Error",
+  "notification.errorBody": "{profile}: {message}",
 };
 
 const esAR: Translations = {
@@ -541,6 +547,12 @@ const esAR: Translations = {
   "confirm.stopMaintenanceTitle": "Detener Mantenimiento",
   "confirm.stopMaintenanceMessage": "¿Seguro que querés detener el mantenimiento en ejecución? Se perderá el progreso de la base de datos actual.",
   "confirm.stopMaintenanceConfirm": "Detener",
+
+  // Notifications
+  "notification.finishedTitle": "Mantenimiento Completado",
+  "notification.finishedBody": "{profile}: {rebuilt} reconstruidos, {reorganized} reorganizados en {duration}",
+  "notification.errorTitle": "Error de Mantenimiento",
+  "notification.errorBody": "{profile}: {message}",
 };
 
 export const translations: Record<Lang, Translations> = { en, "es-AR": esAR };

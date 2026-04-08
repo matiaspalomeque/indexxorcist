@@ -10,6 +10,7 @@
     "window-state:default",
     "dialog:allow-save",
     "fs:allow-write-text-file",
-    "core:webview:allow-print"
+    "core:webview:allow-print",
+    "notification:default"
   ]
 }

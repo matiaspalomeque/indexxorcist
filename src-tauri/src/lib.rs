@@ -60,6 +60,7 @@ pub fn run() {
             tauri_plugin_window_state::Builder::new()
                 .build(),
         )
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let db_path = app
                 .path()
