@@ -60,6 +60,13 @@ fn write_disk_profiles(
     fs::write(path, json).map_err(|e| e.to_string())
 }
 
+fn upsert_disk_profile(profiles: &mut Vec<ServerProfileOnDisk>, disk_profile: ServerProfileOnDisk) {
+    match profiles.iter_mut().find(|p| p.id == disk_profile.id) {
+        Some(existing) => *existing = disk_profile,
+        None => profiles.push(disk_profile),
+    }
+}
+
 /// Read the consolidated password map from a single keychain entry.
 fn load_password_map() -> HashMap<String, String> {
     let entry = keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT);
@@ -96,6 +103,14 @@ fn store_password(profile_id: &str, password: &str) {
     let mut map = load_password_map();
     map.insert(profile_id.to_string(), password.to_string());
     save_password_map(&map);
+}
+
+fn resolve_duplicate_password(source_password: &str, requested_password: &str) -> String {
+    if requested_password.is_empty() {
+        source_password.to_string()
+    } else {
+        requested_password.to_string()
+    }
 }
 
 fn delete_password(profile_id: &str) {
@@ -137,10 +152,49 @@ pub async fn save_server_profile(
 
     let disk_profile = ServerProfileOnDisk::from(profile.clone());
     let mut profiles = load_disk_profiles(&app)?;
-    match profiles.iter_mut().find(|p| p.id == disk_profile.id) {
-        Some(existing) => *existing = disk_profile,
-        None => profiles.push(disk_profile),
+    upsert_disk_profile(&mut profiles, disk_profile);
+    write_disk_profiles(&app, &profiles)
+}
+
+#[specta::specta]
+#[tauri::command]
+pub async fn duplicate_server_profile(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    source_id: String,
+    profile: ServerProfile,
+) -> Result<(), String> {
+    let _guard = state.profile_io_lock.lock().await;
+
+    if profile.id == source_id {
+        return Err("Duplicate profile must use a new id".to_string());
     }
+
+    let mut profiles = load_disk_profiles(&app)?;
+
+    let mut source_exists = false;
+    let mut new_id_taken = false;
+    for p in &profiles {
+        if p.id == source_id { source_exists = true; }
+        if p.id == profile.id { new_id_taken = true; }
+    }
+    if !source_exists {
+        return Err(format!("Profile '{source_id}' not found"));
+    }
+    if new_id_taken {
+        return Err(format!("Profile id '{}' already exists", profile.id));
+    }
+
+    let mut pw_map = load_password_map();
+    let source_password = pw_map.get(&source_id).cloned().unwrap_or_default();
+    let resolved_password = resolve_duplicate_password(&source_password, &profile.password);
+    if !resolved_password.is_empty() {
+        pw_map.insert(profile.id.clone(), resolved_password);
+        save_password_map(&pw_map);
+    }
+
+    let disk_profile = ServerProfileOnDisk::from(profile.clone());
+    upsert_disk_profile(&mut profiles, disk_profile);
     write_disk_profiles(&app, &profiles)
 }
 
@@ -156,4 +210,25 @@ pub async fn delete_server_profile(
     let mut profiles = load_disk_profiles(&app)?;
     profiles.retain(|p| p.id != id);
     write_disk_profiles(&app, &profiles)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_duplicate_password;
+
+    #[test]
+    fn resolve_duplicate_password_copies_source_password_when_blank() {
+        assert_eq!(
+            resolve_duplicate_password("source-secret", ""),
+            "source-secret".to_string()
+        );
+    }
+
+    #[test]
+    fn resolve_duplicate_password_prefers_explicit_password_override() {
+        assert_eq!(
+            resolve_duplicate_password("source-secret", "override-secret"),
+            "override-secret".to_string()
+        );
+    }
 }

@@ -3,12 +3,14 @@ import { useRef, useState } from "react";
 import { useT } from "../../i18n";
 import { useDialogA11y } from "../../hooks/useDialogA11y";
 import { useProfileStore } from "../../store/profileStore";
+import { createDuplicateProfileName } from "../../utils/profileTransfer";
 import type { ServerProfile } from "../../types";
 
-interface Props {
-  profile?: ServerProfile;
-  onClose: () => void;
-}
+type Props = { onClose: () => void } & (
+  | { mode: "create" }
+  | { mode: "edit"; profile: ServerProfile }
+  | { mode: "duplicate"; sourceProfile: ServerProfile; existingNames: string[] }
+);
 
 const DEFAULTS: Omit<ServerProfile, "id" | "name"> = {
   server: "",
@@ -20,23 +22,32 @@ const DEFAULTS: Omit<ServerProfile, "id" | "name"> = {
   trust_server_certificate: true,
 };
 
-export function ProfileFormModal({ profile, onClose }: Props) {
+export function ProfileFormModal(props: Props) {
+  const { onClose } = props;
   const t = useT();
-  const { save } = useProfileStore();
-  const isNew = !profile;
+  const { save, duplicate } = useProfileStore();
+  const isNew = props.mode === "create";
+  const isDuplicate = props.mode === "duplicate";
   const dialogRef = useRef<HTMLDivElement>(null);
   useDialogA11y(dialogRef, onClose);
 
-  const [form, setForm] = useState<ServerProfile>(
-    profile ?? { id: crypto.randomUUID(), name: "", ...DEFAULTS }
-  );
+  const [form, setForm] = useState<ServerProfile>(() => {
+    if (props.mode === "edit") return props.profile;
+    if (props.mode === "duplicate") {
+      return {
+        ...props.sourceProfile,
+        id: crypto.randomUUID(),
+        name: createDuplicateProfileName(props.sourceProfile.name, props.existingNames),
+        password: "",
+      };
+    }
+    return { id: crypto.randomUUID(), name: "", ...DEFAULTS };
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const set = (key: keyof ServerProfile, value: unknown) =>
     setForm((f) => ({ ...f, [key]: value }));
-
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +61,11 @@ export function ProfileFormModal({ profile, onClose }: Props) {
     }
     setSaving(true);
     try {
-      await save(form);
+      if (props.mode === "duplicate") {
+        await duplicate(props.sourceProfile.id, form);
+      } else {
+        await save(form);
+      }
       onClose();
     } catch (err) {
       setError(String(err));
@@ -74,7 +89,11 @@ export function ProfileFormModal({ profile, onClose }: Props) {
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800">
           <h2 id="profile-form-title" className="font-semibold text-gray-900 dark:text-white">
-            {isNew ? t("profileForm.titleNew") : t("profileForm.titleEdit")}
+            {isNew
+              ? t("profileForm.titleNew")
+              : isDuplicate
+              ? t("profileForm.titleDuplicate")
+              : t("profileForm.titleEdit")}
           </h2>
           <button
             type="button"
@@ -131,9 +150,14 @@ export function ProfileFormModal({ profile, onClose }: Props) {
                 onChange={(e) => set("password", e.target.value)}
                 className={INPUT_CLS}
               />
-              {!isNew && (
+              {!isNew && !isDuplicate && (
                 <p className="mt-1 text-xs text-gray-600 dark:text-gray-500">
                   {t("profileForm.passwordHelpEdit")}
+                </p>
+              )}
+              {isDuplicate && (
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-500">
+                  {t("profileForm.passwordHelpDuplicate")}
                 </p>
               )}
             </Field>
@@ -167,7 +191,11 @@ export function ProfileFormModal({ profile, onClose }: Props) {
               disabled={saving}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
             >
-              {saving ? t("profileForm.saving") : t("profileForm.save")}
+              {saving
+                ? t("profileForm.saving")
+                : isDuplicate
+                ? t("profileForm.saveDuplicate")
+                : t("profileForm.save")}
             </button>
           </div>
         </form>

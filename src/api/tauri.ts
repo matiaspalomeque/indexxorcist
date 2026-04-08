@@ -11,6 +11,11 @@ export const getServerProfiles = (): Promise<ServerProfile[]> =>
 export const saveServerProfile = (profile: ServerProfile): Promise<void> =>
   invoke("save_server_profile", { profile });
 
+export const duplicateServerProfile = (
+  sourceId: string,
+  profile: ServerProfile
+): Promise<void> => invoke("duplicate_server_profile", { sourceId, profile });
+
 export const deleteServerProfile = (id: string): Promise<void> =>
   invoke("delete_server_profile", { id });
 

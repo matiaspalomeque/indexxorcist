@@ -5,6 +5,7 @@ import { DEFAULT_OPTIONS, type MaintenanceOptions } from "../types";
 interface ProfileSettingsState {
   byProfile: Record<string, MaintenanceOptions>;
   getSettings: (profileId: string) => MaintenanceOptions;
+  setProfileSettings: (profileId: string, settings: MaintenanceOptions) => void;
   updateSetting: <K extends keyof MaintenanceOptions>(
     profileId: string,
     key: K,
@@ -23,6 +24,13 @@ export const useProfileSettingsStore = create<ProfileSettingsState>()(
         ...DEFAULT_OPTIONS,
         ...(get().byProfile[profileId] ?? {}),
       }),
+      setProfileSettings: (profileId, settings) =>
+        set((state) => ({
+          byProfile: {
+            ...state.byProfile,
+            [profileId]: { ...settings },
+          },
+        })),
       updateSetting: (profileId, key, value) =>
         set((state) => ({
           byProfile: {

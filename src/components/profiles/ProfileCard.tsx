@@ -1,4 +1,4 @@
-import { CheckCircle, Edit2, Trash2, XCircle, Zap } from "lucide-react";
+import { CheckCircle, Copy, Download, Edit2, Trash2, XCircle, Zap } from "lucide-react";
 import { useState } from "react";
 import * as api from "../../api/tauri";
 import { useT } from "../../i18n";
@@ -12,9 +12,11 @@ type TestStatus = "idle" | "testing" | "success" | "error";
 interface Props {
   profile: ServerProfile;
   onEdit: () => void;
+  onDuplicate: () => void;
+  onExport: () => void;
 }
 
-export function ProfileCard({ profile, onEdit }: Props) {
+export function ProfileCard({ profile, onEdit, onDuplicate, onExport }: Props) {
   const t = useT();
   const { remove } = useProfileStore();
   const openProfileTab = useUiStore((s) => s.openProfileTab);
@@ -77,6 +79,22 @@ export function ProfileCard({ profile, onEdit }: Props) {
             title={t("profileCard.edit")}
           >
             <Edit2 size={15} />
+          </button>
+
+          <button
+            onClick={onDuplicate}
+            className="p-1.5 text-gray-400 hover:text-indigo-500 transition-colors"
+            title={t("profileCard.duplicate")}
+          >
+            <Copy size={15} />
+          </button>
+
+          <button
+            onClick={onExport}
+            className="p-1.5 text-gray-400 hover:text-emerald-500 transition-colors"
+            title={t("profileCard.export")}
+          >
+            <Download size={15} />
           </button>
 
           <button
