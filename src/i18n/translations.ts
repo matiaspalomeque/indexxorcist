@@ -22,6 +22,12 @@ const en: Translations = {
   "profiles.title": "Server Profiles",
   "profiles.subtitle": "Manage SQL Server connection profiles",
   "profiles.newProfile": "New Profile",
+  "profiles.import": "Import",
+  "profiles.importing": "Importing…",
+  "profiles.exportAll": "Export All",
+  "profiles.exportingAll": "Exporting…",
+  "profiles.exportDialogTitle": "Export Profiles",
+  "profiles.importSuccess": "Imported {count} profile(s). Passwords were not included; re-enter them before use.",
   "profiles.empty": "No profiles yet. Create one to get started.",
 
   // Profile card
@@ -29,6 +35,8 @@ const en: Translations = {
   "profileCard.failed": "Failed",
   "profileCard.testConnection": "Test connection",
   "profileCard.edit": "Edit",
+  "profileCard.duplicate": "Duplicate",
+  "profileCard.export": "Export",
   "profileCard.delete": "Delete",
   "profileCard.tls": "TLS",
   "profileCard.alreadyOpened": "Profile Already Opened",
@@ -37,6 +45,7 @@ const en: Translations = {
   // Profile form modal
   "profileForm.titleNew": "New Profile",
   "profileForm.titleEdit": "Edit Profile",
+  "profileForm.titleDuplicate": "Duplicate Profile",
   "profileForm.nameLabel": "Profile Name *",
   "profileForm.namePlaceholder": "e.g. Production",
   "profileForm.serverLabel": "Server *",
@@ -45,12 +54,14 @@ const en: Translations = {
   "profileForm.usernameLabel": "Username *",
   "profileForm.passwordLabel": "Password",
   "profileForm.passwordHelpEdit": "Leave blank to keep the current password.",
+  "profileForm.passwordHelpDuplicate": "Leave blank to keep the copied password from the source profile.",
   "profileForm.encryptLabel": "Encrypt (TLS)",
   "profileForm.trustCertLabel": "Trust Certificate",
   "profileForm.validationError": "Name, server, and username are required.",
   "profileForm.passwordRequired": "Password is required for new profiles.",
   "profileForm.cancel": "Cancel",
   "profileForm.save": "Save",
+  "profileForm.saveDuplicate": "Create Copy",
   "profileForm.saving": "Saving…",
 
   // Database selector
@@ -298,6 +309,12 @@ const esAR: Translations = {
   "profiles.title": "Perfiles de Servidor",
   "profiles.subtitle": "Administrá tus perfiles de conexión SQL Server",
   "profiles.newProfile": "Nuevo Perfil",
+  "profiles.import": "Importar",
+  "profiles.importing": "Importando…",
+  "profiles.exportAll": "Exportar Todo",
+  "profiles.exportingAll": "Exportando…",
+  "profiles.exportDialogTitle": "Exportar Perfiles",
+  "profiles.importSuccess": "Se importaron {count} perfil(es). Las contraseñas no fueron incluidas; volvé a ingresarlas antes de usar los perfiles.",
   "profiles.empty": "Sin perfiles aún. Creá uno para comenzar.",
 
   // Profile card
@@ -305,6 +322,8 @@ const esAR: Translations = {
   "profileCard.failed": "Error",
   "profileCard.testConnection": "Probar conexión",
   "profileCard.edit": "Editar",
+  "profileCard.duplicate": "Duplicar",
+  "profileCard.export": "Exportar",
   "profileCard.delete": "Eliminar",
   "profileCard.tls": "TLS",
   "profileCard.alreadyOpened": "Perfil Ya Abierto",
@@ -313,6 +332,7 @@ const esAR: Translations = {
   // Profile form modal
   "profileForm.titleNew": "Nuevo Perfil",
   "profileForm.titleEdit": "Editar Perfil",
+  "profileForm.titleDuplicate": "Duplicar Perfil",
   "profileForm.nameLabel": "Nombre del Perfil *",
   "profileForm.namePlaceholder": "ej. Producción",
   "profileForm.serverLabel": "Servidor *",
@@ -321,12 +341,14 @@ const esAR: Translations = {
   "profileForm.usernameLabel": "Usuario *",
   "profileForm.passwordLabel": "Contraseña",
   "profileForm.passwordHelpEdit": "Dejá en blanco para mantener la contraseña actual.",
+  "profileForm.passwordHelpDuplicate": "Dejá en blanco para mantener la contraseña copiada del perfil de origen.",
   "profileForm.encryptLabel": "Encriptar (TLS)",
   "profileForm.trustCertLabel": "Confiar en Certificado",
   "profileForm.validationError": "El nombre, servidor y usuario son obligatorios.",
   "profileForm.passwordRequired": "La contraseña es obligatoria para perfiles nuevos.",
   "profileForm.cancel": "Cancelar",
   "profileForm.save": "Guardar",
+  "profileForm.saveDuplicate": "Crear Copia",
   "profileForm.saving": "Guardando…",
 
   // Database selector

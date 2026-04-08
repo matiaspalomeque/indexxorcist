@@ -33,6 +33,7 @@ pub fn run() {
         tauri_specta::collect_commands![
             commands::profiles::get_server_profiles,
             commands::profiles::save_server_profile,
+            commands::profiles::duplicate_server_profile,
             commands::profiles::delete_server_profile,
             commands::database::test_connection,
             commands::database::get_databases,

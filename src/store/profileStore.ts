@@ -5,16 +5,19 @@ import { useMaintenanceStore } from "./maintenanceStore";
 import { useProfileSettingsStore } from "./profileSettingsStore";
 import { useUiStore } from "./uiStore";
 import type { ServerProfile } from "../types";
+import type { PreparedImportedProfile } from "../utils/profileTransfer";
 
 interface ProfileState {
   profiles: ServerProfile[];
   loading: boolean;
   load: () => Promise<void>;
   save: (profile: ServerProfile) => Promise<void>;
+  duplicate: (sourceId: string, profile: ServerProfile) => Promise<void>;
+  importProfiles: (entries: PreparedImportedProfile[]) => Promise<void>;
   remove: (id: string) => Promise<void>;
 }
 
-export const useProfileStore = create<ProfileState>((set) => ({
+export const useProfileStore = create<ProfileState>((set, get) => ({
   profiles: [],
   loading: false,
 
@@ -30,8 +33,27 @@ export const useProfileStore = create<ProfileState>((set) => ({
 
   save: async (profile) => {
     await api.saveServerProfile(profile);
-    const profiles = await api.getServerProfiles();
-    set({ profiles });
+    await get().load();
+  },
+
+  duplicate: async (sourceId, profile) => {
+    await api.duplicateServerProfile(sourceId, profile);
+    const sourceSettings = useProfileSettingsStore.getState().getSettings(sourceId);
+    useProfileSettingsStore.getState().setProfileSettings(profile.id, sourceSettings);
+    await get().load();
+  },
+
+  importProfiles: async (entries) => {
+    try {
+      for (const entry of entries) {
+        await api.saveServerProfile(entry.profile);
+        useProfileSettingsStore
+          .getState()
+          .setProfileSettings(entry.profile.id, entry.settings);
+      }
+    } finally {
+      await get().load();
+    }
   },
 
   remove: async (id) => {

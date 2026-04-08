@@ -8,7 +8,9 @@
     "updater:allow-download-and-install",
     "process:allow-restart",
     "window-state:default",
+    "dialog:allow-open",
     "dialog:allow-save",
+    "fs:allow-read-text-file",
     "fs:allow-write-text-file",
     "core:webview:allow-print",
     "notification:default"
