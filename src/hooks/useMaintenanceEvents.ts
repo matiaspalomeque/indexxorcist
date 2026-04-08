@@ -13,6 +13,7 @@ import type {
 import { useMaintenanceStore } from "../store/maintenanceStore";
 import { useUiStore } from "../store/uiStore";
 import { useHistoryStore } from "../store/historyStore";
+import { notifyMaintenanceFinished, notifyMaintenanceError } from "../utils/notifications";
 
 // Mounted once at App root — persists across view navigation.
 // Store methods are read via getState() inside the effect so the dep array is
@@ -53,6 +54,9 @@ export function useMaintenanceEvents() {
           ) {
             ui.setView("summary");
           }
+          // Native OS notification
+          const profileName = store().byProfile[e.payload.profile_id]?.profileName ?? "Unknown";
+          void notifyMaintenanceFinished(profileName, e.payload.summary);
         }),
         listen<MaintenanceControlPayload>("maintenance:control", (e) => {
           store().setRunState(e.payload.profile_id, e.payload.state);
@@ -60,12 +64,14 @@ export function useMaintenanceEvents() {
             store().handleStopSignal(e.payload.profile_id);
           }
         }),
-        listen<MaintenanceErrorPayload>("maintenance:error", (e) =>
+        listen<MaintenanceErrorPayload>("maintenance:error", (e) => {
           console.error(
             `[Maintenance:${e.payload.profile_id}]`,
             e.payload.message
-          )
-        ),
+          );
+          const profileName = store().byProfile[e.payload.profile_id]?.profileName ?? "Unknown";
+          void notifyMaintenanceError(profileName, e.payload.message);
+        }),
       ]);
 
       if (disposed) {

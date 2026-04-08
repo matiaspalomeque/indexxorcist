@@ -8,6 +8,7 @@ import { useProfileSettingsStore } from "../../store/profileSettingsStore";
 import { useProfileStore } from "../../store/profileStore";
 import { useUiStore } from "../../store/uiStore";
 import { DEFAULT_OPTIONS } from "../../types";
+import { prepareNotificationPermission } from "../../utils/notifications";
 import { OptionsPanel } from "./OptionsPanel";
 
 export function DatabaseSelector() {
@@ -101,6 +102,7 @@ export function DatabaseSelector() {
     setStarting(true);
     setError("");
     try {
+      await prepareNotificationPermission();
       startRun(activeProfile, selectedDbs, settings.parallel_databases);
       await api.runMaintenance(activeProfileId, selectedDbs, settings);
       setView("dashboard");

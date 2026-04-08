@@ -3,6 +3,7 @@ import { useState } from "react";
 import * as api from "../../api/tauri";
 import { useT } from "../../i18n";
 import { useMaintenanceStore } from "../../store/maintenanceStore";
+import { ConfirmDialog } from "../shared/ConfirmDialog";
 
 interface RunControlsProps {
   profileId: string;
@@ -14,6 +15,7 @@ export function RunControls({ profileId }: RunControlsProps) {
   const setRunState = useMaintenanceStore((s) => s.setRunState);
   const [busy, setBusy] = useState<null | "pause" | "stop">(null);
   const [controlError, setControlError] = useState("");
+  const [showStopConfirm, setShowStopConfirm] = useState(false);
 
   if (!run) {
     return null;
@@ -95,7 +97,7 @@ export function RunControls({ profileId }: RunControlsProps) {
 
         {/* Stop Button */}
         <button
-          onClick={handleStop}
+          onClick={() => setShowStopConfirm(true)}
           disabled={busy !== null}
           aria-label={t("controls.stop")}
           aria-busy={busy === "stop"}
@@ -117,12 +119,24 @@ export function RunControls({ profileId }: RunControlsProps) {
       
       {/* Error Display */}
       {controlError && (
-        <div 
+        <div
           role="alert"
           className="flex items-start gap-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
         >
           <p className="text-xs text-red-600 dark:text-red-400 max-w-[400px]">{controlError}</p>
         </div>
+      )}
+
+      {showStopConfirm && (
+        <ConfirmDialog
+          title={t("confirm.stopMaintenanceTitle")}
+          message={t("confirm.stopMaintenanceMessage")}
+          confirmLabel={t("confirm.stopMaintenanceConfirm")}
+          cancelLabel={t("confirm.cancel")}
+          variant="warning"
+          onConfirm={() => { setShowStopConfirm(false); void handleStop(); }}
+          onCancel={() => setShowStopConfirm(false)}
+        />
       )}
     </div>
   );

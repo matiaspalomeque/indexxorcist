@@ -259,6 +259,24 @@ const en: Translations = {
   // Summary export
   "summary.exportCsv": "Export CSV",
   "summary.print": "Print / PDF",
+
+  // Confirmation dialogs
+  "confirm.cancel": "Cancel",
+  "confirm.deleteProfileTitle": "Delete Profile",
+  "confirm.deleteProfileMessage": "Are you sure you want to delete \"{name}\"? This will remove the profile and all its associated data. This action cannot be undone.",
+  "confirm.deleteProfileConfirm": "Delete Profile",
+  "confirm.clearHistoryTitle": "Clear History",
+  "confirm.clearHistoryMessage": "Are you sure you want to clear all run history? This action cannot be undone.",
+  "confirm.clearHistoryConfirm": "Clear All",
+  "confirm.stopMaintenanceTitle": "Stop Maintenance",
+  "confirm.stopMaintenanceMessage": "Are you sure you want to stop the running maintenance? Progress on the current database will be lost.",
+  "confirm.stopMaintenanceConfirm": "Stop",
+
+  // Notifications
+  "notification.finishedTitle": "Maintenance Complete",
+  "notification.finishedBody": "{profile}: {rebuilt} rebuilt, {reorganized} reorganized in {duration}",
+  "notification.errorTitle": "Maintenance Error",
+  "notification.errorBody": "{profile}: {message}",
 };
 
 const esAR: Translations = {
@@ -517,6 +535,24 @@ const esAR: Translations = {
   // Summary export
   "summary.exportCsv": "Exportar CSV",
   "summary.print": "Imprimir / PDF",
+
+  // Confirmation dialogs
+  "confirm.cancel": "Cancelar",
+  "confirm.deleteProfileTitle": "Eliminar Perfil",
+  "confirm.deleteProfileMessage": "¿Seguro que querés eliminar \"{name}\"? Se eliminará el perfil y todos sus datos asociados. Esta acción no se puede deshacer.",
+  "confirm.deleteProfileConfirm": "Eliminar Perfil",
+  "confirm.clearHistoryTitle": "Borrar Historial",
+  "confirm.clearHistoryMessage": "¿Seguro que querés borrar todo el historial de ejecuciones? Esta acción no se puede deshacer.",
+  "confirm.clearHistoryConfirm": "Borrar Todo",
+  "confirm.stopMaintenanceTitle": "Detener Mantenimiento",
+  "confirm.stopMaintenanceMessage": "¿Seguro que querés detener el mantenimiento en ejecución? Se perderá el progreso de la base de datos actual.",
+  "confirm.stopMaintenanceConfirm": "Detener",
+
+  // Notifications
+  "notification.finishedTitle": "Mantenimiento Completado",
+  "notification.finishedBody": "{profile}: {rebuilt} reconstruidos, {reorganized} reorganizados en {duration}",
+  "notification.errorTitle": "Error de Mantenimiento",
+  "notification.errorBody": "{profile}: {message}",
 };
 
 export const translations: Record<Lang, Translations> = { en, "es-AR": esAR };

@@ -5,6 +5,7 @@ import { useT } from "../../i18n";
 import { useProfileStore } from "../../store/profileStore";
 import { useUiStore } from "../../store/uiStore";
 import type { ServerProfile } from "../../types";
+import { ConfirmDialog } from "../shared/ConfirmDialog";
 
 type TestStatus = "idle" | "testing" | "success" | "error";
 
@@ -20,6 +21,7 @@ export function ProfileCard({ profile, onEdit }: Props) {
   const connectedProfileIds = useUiStore((s) => s.connectedProfileIds);
   const [testStatus, setTestStatus] = useState<TestStatus>("idle");
   const [testError, setTestError] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const alreadyOpened = connectedProfileIds.includes(profile.id);
 
   const handleTest = async () => {
@@ -78,7 +80,7 @@ export function ProfileCard({ profile, onEdit }: Props) {
           </button>
 
           <button
-            onClick={() => remove(profile.id)}
+            onClick={() => setShowDeleteConfirm(true)}
             className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
             title={t("profileCard.delete")}
           >
@@ -93,6 +95,18 @@ export function ProfileCard({ profile, onEdit }: Props) {
       <p className="text-sm text-gray-500 dark:text-gray-500">
         {profile.username}
       </p>
+
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title={t("confirm.deleteProfileTitle")}
+          message={t("confirm.deleteProfileMessage", { name: profile.name })}
+          confirmLabel={t("confirm.deleteProfileConfirm")}
+          cancelLabel={t("confirm.cancel")}
+          variant="danger"
+          onConfirm={() => { remove(profile.id); setShowDeleteConfirm(false); }}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
 
       <div className="mt-auto pt-3 flex items-center justify-end gap-2">
         {profile.encrypt && (
