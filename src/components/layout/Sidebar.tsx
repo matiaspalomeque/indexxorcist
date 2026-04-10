@@ -1,4 +1,4 @@
-import { Clock, Home, Moon, Sun, X } from "lucide-react";
+import { BarChart2, Clock, Home, Moon, Sun, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useT } from "../../i18n";
 import { AboutModal } from "../about/AboutModal";
@@ -74,6 +74,17 @@ export function Sidebar() {
         >
           <Clock size={15} />
           {t("sidebar.history")}
+        </button>
+        <button
+          onClick={() => setView("insights")}
+          className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            currentView === "insights"
+              ? "bg-blue-600 text-white"
+              : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+          }`}
+        >
+          <BarChart2 size={15} />
+          {t("sidebar.insights")}
         </button>
       </div>
 

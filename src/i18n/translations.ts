@@ -227,8 +227,30 @@ const en: Translations = {
   "update.installing": "Installing…",
   "update.dismiss": "Dismiss",
 
-  // Sidebar history
+  // Sidebar history & insights
   "sidebar.history": "History",
+  "sidebar.insights": "Insights",
+
+  // Insights view
+  "insights.title": "Index Health Insights",
+  "insights.subtitle": "Fragmentation patterns across all maintenance runs",
+  "insights.loading": "Loading insights...",
+  "insights.empty": "No run history yet. Complete a maintenance run to see insights.",
+  "insights.statRuns": "Total Runs",
+  "insights.statFixed": "Indexes Fixed",
+  "insights.statAvgDuration": "Avg Duration",
+  "insights.calendarTitle": "Maintenance Activity",
+  "insights.calendarSubtitle": "Color reflects avg fragmentation level on days with runs",
+  "insights.legendLow": "No run",
+  "insights.legendHigh": "Critical",
+  "insights.offendersTitle": "Chronic Offenders",
+  "insights.offendersSubtitle": "Indexes most frequently rebuilt across all runs",
+  "insights.offendersEmpty": "No REBUILD actions recorded yet.",
+  "insights.dbTitle": "Database Activity",
+  "insights.dbSubtitle": "Most maintained databases by total indexes fixed",
+  "insights.dbEmpty": "No database data yet.",
+  "insights.dbRuns": "{count} runs",
+  "insights.dbFixed": "{count} fixed ({rebuilt} rebuilt)",
 
   // History view
   "history.title": "Run History",
@@ -515,8 +537,30 @@ const esAR: Translations = {
   "update.installing": "Instalando…",
   "update.dismiss": "Cerrar",
 
-  // Sidebar history
+  // Sidebar history & insights
   "sidebar.history": "Historial",
+  "sidebar.insights": "Análisis",
+
+  // Insights view
+  "insights.title": "Análisis de Salud de Índices",
+  "insights.subtitle": "Patrones de fragmentación en todas las ejecuciones de mantenimiento",
+  "insights.loading": "Cargando análisis...",
+  "insights.empty": "Sin historial de ejecuciones aún. Completá un mantenimiento para ver el análisis.",
+  "insights.statRuns": "Ejecuciones Totales",
+  "insights.statFixed": "Índices Corregidos",
+  "insights.statAvgDuration": "Duración Promedio",
+  "insights.calendarTitle": "Actividad de Mantenimiento",
+  "insights.calendarSubtitle": "El color refleja el nivel promedio de fragmentación en días con ejecuciones",
+  "insights.legendLow": "Sin ejecución",
+  "insights.legendHigh": "Crítico",
+  "insights.offendersTitle": "Infractores Crónicos",
+  "insights.offendersSubtitle": "Índices reconstruidos con mayor frecuencia en todas las ejecuciones",
+  "insights.offendersEmpty": "Aún no hay acciones REBUILD registradas.",
+  "insights.dbTitle": "Actividad por Base de Datos",
+  "insights.dbSubtitle": "Bases de datos con más índices corregidos en total",
+  "insights.dbEmpty": "Sin datos de bases de datos aún.",
+  "insights.dbRuns": "{count} ejecuciones",
+  "insights.dbFixed": "{count} corregidos ({rebuilt} reconstruidos)",
 
   // History view
   "history.title": "Historial de Ejecuciones",

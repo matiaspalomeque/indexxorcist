@@ -22,7 +22,7 @@ export const useUiStore = create<UiState>((set) => ({
 
   setView: (view) =>
     set((state) => {
-      if (view === "profiles" || view === "history" || !state.activeProfileId) {
+      if (view === "profiles" || view === "history" || view === "insights" || !state.activeProfileId) {
         return { currentView: view };
       }
 
@@ -43,7 +43,7 @@ export const useUiStore = create<UiState>((set) => ({
 
       const savedView = state.profileViews[id];
       const fallbackView: WizardView =
-        state.currentView !== "profiles" && state.currentView !== "history"
+        state.currentView !== "profiles" && state.currentView !== "history" && state.currentView !== "insights"
           ? state.currentView
           : "databases";
       const nextView: WizardView = savedView ?? fallbackView;
