@@ -8,6 +8,7 @@ import { EMPTY_FILTERS, filterRecords, type HistoryFilters } from "../../utils/f
 import { dbStatusInfo, formatDuration, indexStatusInfo } from "../../utils/format";
 import { sortData, useSortableColumns } from "../../utils/sort";
 import { ConfirmDialog } from "../shared/ConfirmDialog";
+import { Select } from "../shared/Select";
 import { SortableHeader } from "../shared/SortableHeader";
 
 const INITIAL_HISTORY_LIMIT = 100;
@@ -227,15 +228,17 @@ export function HistoryView() {
                 className="px-2 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
               />
             </div>
-            <select
+            <Select<HistoryFilters["status"]>
               value={filters.status}
-              onChange={(e) => updateFilter("status", e.target.value as HistoryFilters["status"])}
-              className="px-2 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-            >
-              <option value="all">{t("history.statusAll")}</option>
-              <option value="hasErrors">{t("history.statusHasErrors")}</option>
-              <option value="allSuccess">{t("history.statusAllSuccess")}</option>
-            </select>
+              onChange={(v) => updateFilter("status", v)}
+              aria-label={t("history.statusFilterLabel")}
+              className="min-w-[140px]"
+              options={[
+                { value: "all", label: t("history.statusAll") },
+                { value: "hasErrors", label: t("history.statusHasErrors") },
+                { value: "allSuccess", label: t("history.statusAllSuccess") },
+              ]}
+            />
             {hasActiveFilters && (
               <button
                 onClick={() => setFilters(EMPTY_FILTERS)}

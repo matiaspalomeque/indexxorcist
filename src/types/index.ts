@@ -198,7 +198,7 @@ export interface MaintenanceErrorPayload {
 
 export type RunState = "idle" | "running" | "paused" | "finished" | "stopped";
 
-export type View = "profiles" | "databases" | "dashboard" | "summary" | "history";
+export type View = "profiles" | "databases" | "dashboard" | "summary" | "history" | "insights";
 
-// WizardView excludes global views (profiles home, history) that aren't wizard steps
-export type WizardView = Exclude<View, "profiles" | "history">;
+// WizardView excludes global views (profiles home, history, insights) that aren't wizard steps
+export type WizardView = Exclude<View, "profiles" | "history" | "insights">;

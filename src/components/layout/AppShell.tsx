@@ -4,6 +4,7 @@ import { DatabaseSelector } from "../databases/DatabaseSelector";
 import { MaintenanceDashboard } from "../dashboard/MaintenanceDashboard";
 import { ResultsSummary } from "../summary/ResultsSummary";
 import { HistoryView } from "../history/HistoryView";
+import { InsightsView } from "../insights/InsightsView";
 import { isActiveRunState, useMaintenanceStore } from "../../store/maintenanceStore";
 import { useUiStore } from "../../store/uiStore";
 import { useT } from "../../i18n";
@@ -15,6 +16,7 @@ const VIEW_COMPONENTS: Partial<Record<View, ComponentType>> = {
   dashboard: MaintenanceDashboard,
   summary: ResultsSummary,
   history: HistoryView,
+  insights: InsightsView,
 };
 
 export function AppShell() {
@@ -28,8 +30,8 @@ export function AppShell() {
   );
 
   const wizardLocked = activeRunState ? isActiveRunState(activeRunState) : false;
-  const showProfilesHome = currentView === "profiles" || (!activeProfileId && currentView !== "history");
-  const showWizardBar = !showProfilesHome && currentView !== "history";
+  const showProfilesHome = currentView === "profiles" || (!activeProfileId && currentView !== "history" && currentView !== "insights");
+  const showWizardBar = !showProfilesHome && currentView !== "history" && currentView !== "insights";
 
   const WIZARD_STEPS: Array<{ view: WizardView; label: string; step: number }> = [
     { view: "databases", label: t("wizard.databases"), step: 1 },
