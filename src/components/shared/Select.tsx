@@ -12,6 +12,7 @@ interface SelectProps<T extends string> {
   onChange: (value: T) => void;
   "aria-label"?: string;
   className?: string;
+  align?: "left" | "right";
 }
 
 export function Select<T extends string>({
@@ -20,6 +21,7 @@ export function Select<T extends string>({
   onChange,
   "aria-label": ariaLabel,
   className,
+  align = "left",
 }: SelectProps<T>) {
   const [open, setOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
@@ -113,7 +115,12 @@ export function Select<T extends string>({
         onKeyDown={handleKeyDown}
         className="flex items-center gap-1.5 px-2 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
       >
-        <span>{selectedLabel}</span>
+        <span className="relative inline-grid">
+          {options.map(o => (
+            <span key={o.value} aria-hidden className="invisible col-start-1 row-start-1 whitespace-nowrap">{o.label}</span>
+          ))}
+          <span className="col-start-1 row-start-1 whitespace-nowrap">{selectedLabel}</span>
+        </span>
         <ChevronDown
           className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
         />
@@ -125,7 +132,7 @@ export function Select<T extends string>({
           role="listbox"
           aria-label={ariaLabel}
           onKeyDown={handleKeyDown}
-          className="absolute left-0 top-full mt-1 z-50 min-w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden"
+          className={`absolute top-full mt-1 z-50 min-w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden ${align === "right" ? "right-0" : "left-0"}`}
         >
           {options.map((option, index) => (
             <li
