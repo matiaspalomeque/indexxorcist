@@ -251,6 +251,8 @@ const en: Translations = {
   "insights.dbEmpty": "No database data yet.",
   "insights.dbRuns": "{count} runs",
   "insights.dbFixed": "{count} fixed ({rebuilt} rebuilt)",
+  "insights.filterServer": "Server",
+  "insights.filterAllServers": "All servers",
 
   // History view
   "history.title": "Run History",
@@ -561,6 +563,8 @@ const esAR: Translations = {
   "insights.dbEmpty": "Sin datos de bases de datos aún.",
   "insights.dbRuns": "{count} ejecuciones",
   "insights.dbFixed": "{count} corregidos ({rebuilt} reconstruidos)",
+  "insights.filterServer": "Servidor",
+  "insights.filterAllServers": "Todos los servidores",
 
   // History view
   "history.title": "Historial de Ejecuciones",

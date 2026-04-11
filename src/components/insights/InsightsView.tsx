@@ -1,7 +1,8 @@
 import { Activity, BarChart2, Clock, Zap } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useT } from "../../i18n";
+import { Select } from "../shared/Select";
 import { useHistoryStore } from "../../store/historyStore";
 import type { RunRecord } from "../../types";
 import { formatDuration } from "../../utils/format";
@@ -16,6 +17,8 @@ type CalendarCell = {
   runs: number;
   avgFrag: number;
 } | null; // null = future date
+
+type Offender = { server: string; db: string; indexPath: string; count: number };
 
 // ─── Data hooks ──────────────────────────────────────────────────────────────
 
@@ -100,27 +103,33 @@ function useCalendarData(records: RunRecord[]) {
   }, [records]);
 }
 
-function useChronicOffenders(records: RunRecord[]) {
+function useChronicOffenders(records: RunRecord[]): Offender[] {
   return useMemo(() => {
-    const counts = new Map<string, number>();
+    const map = new Map<string, Offender>();
     for (const record of records) {
       for (const db of record.database_results) {
         for (const idx of db.index_results) {
           if (idx.action === "REBUILD") {
-            const key = `${db.database_name} › ${idx.schema_name}.${idx.table_name}.${idx.index_name}`;
-            counts.set(key, (counts.get(key) ?? 0) + 1);
+            const indexPath = `${idx.schema_name}.${idx.table_name}.${idx.index_name}`;
+            const key = `${record.server}\0${db.database_name}\0${indexPath}`;
+            const existing = map.get(key);
+            if (!existing) {
+              map.set(key, { server: record.server, db: db.database_name, indexPath, count: 1 });
+            } else {
+              map.set(key, { ...existing, count: existing.count + 1 });
+            }
           }
         }
       }
     }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+    return [...map.values()].sort((a, b) => b.count - a.count).slice(0, 10);
   }, [records]);
 }
 
 function useDbStats(records: RunRecord[]) {
   return useMemo(() => {
     const stats = new Map<string, {
-      db: string; runs: number; rebuilt: number; reorganized: number;
+      server: string; db: string; runs: number; rebuilt: number; reorganized: number;
       totalFrag: number; fragCount: number;
     }>();
 
@@ -131,15 +140,16 @@ function useDbStats(records: RunRecord[]) {
           totalFrag += idx.fragmentation_percent;
           fragCount++;
         }
-        const existing = stats.get(db.database_name);
+        const key = `${record.server}\0${db.database_name}`;
+        const existing = stats.get(key);
         if (!existing) {
-          stats.set(db.database_name, {
-            db: db.database_name, runs: 1,
+          stats.set(key, {
+            server: record.server, db: db.database_name, runs: 1,
             rebuilt: db.indexes_rebuilt, reorganized: db.indexes_reorganized,
             totalFrag, fragCount,
           });
         } else {
-          stats.set(db.database_name, {
+          stats.set(key, {
             ...existing,
             runs: existing.runs + 1,
             rebuilt: existing.rebuilt + db.indexes_rebuilt,
@@ -186,19 +196,31 @@ function fragBadgeClass(avgFrag: number): string {
 export function InsightsView() {
   const t = useT();
   const { records, loading, loadHistory } = useHistoryStore();
+  const [selectedServer, setSelectedServer] = useState<string>("");
 
   useEffect(() => {
     void loadHistory(undefined, 500);
   }, [loadHistory]);
 
-  const { weeks, monthLabels } = useCalendarData(records);
-  const offenders = useChronicOffenders(records);
-  const dbStats = useDbStats(records);
+  const servers = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of records) if (r.server) set.add(r.server);
+    return [...set].sort();
+  }, [records]);
 
-  const totalRuns = records.length;
-  const totalFixed = records.reduce((s, r) => s + r.total_indexes_rebuilt + r.total_indexes_reorganized, 0);
-  const avgDuration = records.length > 0
-    ? records.reduce((s, r) => s + r.total_duration_secs, 0) / records.length
+  const filteredRecords = useMemo(() =>
+    selectedServer ? records.filter(r => r.server === selectedServer) : records,
+    [records, selectedServer]
+  );
+
+  const { weeks, monthLabels } = useCalendarData(filteredRecords);
+  const offenders = useChronicOffenders(filteredRecords);
+  const dbStats = useDbStats(filteredRecords);
+
+  const totalRuns = filteredRecords.length;
+  const totalFixed = filteredRecords.reduce((s, r) => s + r.total_indexes_rebuilt + r.total_indexes_reorganized, 0);
+  const avgDuration = filteredRecords.length > 0
+    ? filteredRecords.reduce((s, r) => s + r.total_duration_secs, 0) / filteredRecords.length
     : 0;
 
   if (loading && records.length === 0) {
@@ -218,14 +240,32 @@ export function InsightsView() {
     );
   }
 
-  const offenderMax = offenders[0]?.[1] ?? 1;
+  const offenderMax = offenders[0]?.count ?? 1;
+  const multiServer = !selectedServer;
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t("insights.title")}</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t("insights.subtitle")}</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t("insights.title")}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t("insights.subtitle")}</p>
+        </div>
+        {servers.length > 1 && (
+          <div className="flex items-center gap-2 flex-shrink-0 mt-1">
+            <span className="text-xs text-gray-500 dark:text-gray-400">{t("insights.filterServer")}</span>
+            <Select
+              value={selectedServer}
+              options={[
+                { value: "", label: t("insights.filterAllServers") },
+                ...servers.map(s => ({ value: s, label: s })),
+              ]}
+              onChange={setSelectedServer}
+              aria-label={t("insights.filterServer")}
+              align="right"
+            />
+          </div>
+        )}
       </div>
 
       {/* Stat cards */}
@@ -311,18 +351,26 @@ export function InsightsView() {
             <p className="text-xs text-gray-400 dark:text-gray-600 italic">{t("insights.offendersEmpty")}</p>
           ) : (
             <div className="space-y-1">
-              {offenders.map(([key, count]) => (
-                <div key={key} className="relative rounded overflow-hidden">
+              {offenders.map((o) => (
+                <div key={`${o.server}\0${o.db}\0${o.indexPath}`} className="relative rounded overflow-hidden">
                   <div
                     className="absolute inset-y-0 left-0 bg-blue-50 dark:bg-blue-900/20 rounded"
-                    style={{ width: `${(count / offenderMax) * 100}%` }}
+                    style={{ width: `${(o.count / offenderMax) * 100}%` }}
                   />
                   <div className="relative flex items-center justify-between px-2 py-1.5 gap-2">
-                    <span className="text-xs font-mono text-gray-700 dark:text-gray-300 truncate" title={key}>
-                      {key}
-                    </span>
+                    <div className="min-w-0">
+                      {multiServer && (
+                        <p className="text-2xs text-gray-400 dark:text-gray-500 leading-tight truncate">{o.server} › {o.db}</p>
+                      )}
+                      <span
+                        className="text-xs font-mono text-gray-700 dark:text-gray-300 truncate block"
+                        title={`${o.db} › ${o.indexPath}`}
+                      >
+                        {!multiServer && `${o.db} › `}{o.indexPath}
+                      </span>
+                    </div>
                     <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 flex-shrink-0">
-                      {count}×
+                      {o.count}×
                     </span>
                   </div>
                 </div>
@@ -341,10 +389,13 @@ export function InsightsView() {
           ) : (
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {dbStats.map(s => (
-                <div key={s.db} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
+                <div key={`${s.server}\0${s.db}`} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-mono font-medium text-gray-900 dark:text-white truncate">{s.db}</p>
-                    <p className="text-2xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    <p className="text-2xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                      {multiServer && (
+                        <span className="text-gray-400 dark:text-gray-500">{s.server} · </span>
+                      )}
                       {t("insights.dbRuns", { count: s.runs })} · {t("insights.dbFixed", { count: s.rebuilt + s.reorganized, rebuilt: s.rebuilt })}
                     </p>
                   </div>
