@@ -1,4 +1,5 @@
-import { useRef } from "react";
+import { useId, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useDialogA11y } from "../../hooks/useDialogA11y";
 
 interface ConfirmDialogProps {
@@ -20,10 +21,13 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const id = useId();
+  const titleId = `${id}-title`;
+  const messageId = `${id}-message`;
   const dialogRef = useRef<HTMLDivElement>(null);
   useDialogA11y(dialogRef, onCancel);
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center"
       onClick={onCancel}
@@ -32,21 +36,21 @@ export function ConfirmDialog({
         ref={dialogRef}
         role="alertdialog"
         aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
-        aria-describedby="confirm-dialog-message"
+        aria-labelledby={titleId}
+        aria-describedby={messageId}
         tabIndex={-1}
         className="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-6 w-96"
         onClick={(e) => e.stopPropagation()}
       >
         <h2
-          id="confirm-dialog-title"
+          id={titleId}
           className="text-lg font-semibold text-gray-900 dark:text-white mb-2"
         >
           {title}
         </h2>
 
         <p
-          id="confirm-dialog-message"
+          id={messageId}
           className="text-sm text-gray-600 dark:text-gray-400 mb-6"
         >
           {message}
@@ -73,6 +77,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

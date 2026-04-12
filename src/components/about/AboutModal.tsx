@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { useRef } from "react";
+import { createPortal } from "react-dom";
 import { useDialogA11y } from "../../hooks/useDialogA11y";
 import { useT } from "../../i18n";
 import appIcon from "../../assets/icon.png";
@@ -12,7 +13,7 @@ export function AboutModal({ onClose }: Props) {
   const t = useT();
   const dialogRef = useRef<HTMLDivElement>(null);
   useDialogA11y(dialogRef, onClose);
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center"
       onClick={onClose}
@@ -49,6 +50,7 @@ export function AboutModal({ onClose }: Props) {
         <p className="text-gray-600 dark:text-gray-500 text-xs">{t("about.madeBy")}</p>
         <p className="text-gray-700 dark:text-gray-300 text-sm font-medium">Matías Palomeque</p>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

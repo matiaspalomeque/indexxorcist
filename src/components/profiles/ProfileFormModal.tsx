@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useT } from "../../i18n";
 import { useDialogA11y } from "../../hooks/useDialogA11y";
 import { useProfileStore } from "../../store/profileStore";
@@ -77,7 +78,7 @@ export function ProfileFormModal(props: Props) {
   const INPUT_CLS =
     "w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors";
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div
         ref={dialogRef}
@@ -200,7 +201,8 @@ export function ProfileFormModal(props: Props) {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
