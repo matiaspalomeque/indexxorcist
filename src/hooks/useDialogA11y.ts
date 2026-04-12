@@ -52,7 +52,7 @@ export function useDialogA11y(
         return;
       }
 
-      const nodes = focusableElements(container);
+      const nodes = focusables;
       if (nodes.length === 0) {
         event.preventDefault();
         container.focus();

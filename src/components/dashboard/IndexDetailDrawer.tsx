@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { memo, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useDialogA11y } from "../../hooks/useDialogA11y";
 import { useT } from "../../i18n";
 import type { DatabaseCardData, IndexDetail } from "../../types";
@@ -102,7 +103,7 @@ export function IndexDetailDrawer({ db, onClose }: Props) {
     t("drawer.colError"),
   ];
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm"
       onClick={onClose}
@@ -187,6 +188,7 @@ export function IndexDetailDrawer({ db, onClose }: Props) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
