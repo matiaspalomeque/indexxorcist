@@ -1,27 +1,27 @@
 {
-  "version": "0.1.21",
-  "notes": "- feat: implement createPortal for modal components and enhance accessibility\n\nSee the assets below to download and install this version.",
-  "pub_date": "2026-04-12T02:03:23.707Z",
+  "version": "0.1.22",
+  "notes": "- feat: add Smart Advisor feature with urgency assessment and estimated run duration for databases\n\nSee the assets below to download and install this version.",
+  "pub_date": "2026-04-15T23:51:30.752Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUUzVpbllVUDFRSXJRNXZ5TCtzRUhkeG9OaHN3NnFFUndjT3Y4OXpnT2dGelVMRm11YzZ4aEFxU3B6R1ZFbkxkSG5PYzlPVENZY1o5dGN0VDNabTZ4NGpqTmx2OTAyTlE0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc1OTU5MDc0CWZpbGU6SW5kZXh4b3JjaXN0LmFwcC50YXIuZ3oKQlNNc0pqUWJTQSt1VzV6UGxpdzNkWm0rd2Qvd3F6RHVRbzVERFg0LzdqL00rNXhNR0RPdnlqV2hWRFM4VGhkUmozRW00Y0c1bmM5RVVMMGVQQUJxQnc9PQo=",
-      "url": "https://github.com/matiaspalomeque/indexxorcist/releases/download/v0.1.21/Indexxorcist_aarch64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUUzVpbllVUDFRSXNLanlzOHNoeE1MbCtGUTkrYXZEYVM0ZDNCS1ozaGxYNEg3Sms1NDVMMmlLcE95RlAxdzNDR2Z3aE85aEEvbXZ4MjdtSldwaDlTd2g1Z09waGtlMVFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc2Mjk2Nzc5CWZpbGU6SW5kZXh4b3JjaXN0LmFwcC50YXIuZ3oKTnNaV2IwSFBuN0s0djZFYmFBaUZYaVRKU3M3YVhaUGxVV1c4Q0JISmZVSUhwOW5ya29qa3BKN1hWVlMyMG9zNW5jZkEzcURna0FobFBkaVNOR2V1Q2c9PQo=",
+      "url": "https://github.com/matiaspalomeque/indexxorcist/releases/download/v0.1.22/Indexxorcist_aarch64.app.tar.gz"
     },
     "darwin-aarch64-app": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUUzVpbllVUDFRSXJRNXZ5TCtzRUhkeG9OaHN3NnFFUndjT3Y4OXpnT2dGelVMRm11YzZ4aEFxU3B6R1ZFbkxkSG5PYzlPVENZY1o5dGN0VDNabTZ4NGpqTmx2OTAyTlE0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc1OTU5MDc0CWZpbGU6SW5kZXh4b3JjaXN0LmFwcC50YXIuZ3oKQlNNc0pqUWJTQSt1VzV6UGxpdzNkWm0rd2Qvd3F6RHVRbzVERFg0LzdqL00rNXhNR0RPdnlqV2hWRFM4VGhkUmozRW00Y0c1bmM5RVVMMGVQQUJxQnc9PQo=",
-      "url": "https://github.com/matiaspalomeque/indexxorcist/releases/download/v0.1.21/Indexxorcist_aarch64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUUzVpbllVUDFRSXNLanlzOHNoeE1MbCtGUTkrYXZEYVM0ZDNCS1ozaGxYNEg3Sms1NDVMMmlLcE95RlAxdzNDR2Z3aE85aEEvbXZ4MjdtSldwaDlTd2g1Z09waGtlMVFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc2Mjk2Nzc5CWZpbGU6SW5kZXh4b3JjaXN0LmFwcC50YXIuZ3oKTnNaV2IwSFBuN0s0djZFYmFBaUZYaVRKU3M3YVhaUGxVV1c4Q0JISmZVSUhwOW5ya29qa3BKN1hWVlMyMG9zNW5jZkEzcURna0FobFBkaVNOR2V1Q2c9PQo=",
+      "url": "https://github.com/matiaspalomeque/indexxorcist/releases/download/v0.1.22/Indexxorcist_aarch64.app.tar.gz"
     },
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUUzVpbllVUDFRSW1iaVVzMFV6bW9WZjZRTWlvbEZUWmhwajR4TWNqRzVGMWorUUF3U3YreU95bDQ1WjMrMGpFZFNOMG1lTEJyUzlJMGlPOTJ3UG45cFJnRGJpQ3VFeHc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc1OTU5NDAwCWZpbGU6SW5kZXh4b3JjaXN0XzAuMS4yMV94NjRfZW4tVVMubXNpCkRSckticmt4dTVheGUra3F4ak1IYmU2RVErNTVTdXJjeEhiTGpGMWVBRDYycE9BWEdBY1dYdTE2L2pBalFQU3daUEdISDFZM2NaeDZ5UnNQUVVyOUJnPT0K",
-      "url": "https://github.com/matiaspalomeque/indexxorcist/releases/download/v0.1.21/Indexxorcist_0.1.21_x64_en-US.msi"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUUzVpbllVUDFRSWo5S0N5YlBOQVZUSWFJblFvMEdudlZhbGdKUmNZZDNUM0lHQnVUUkFVakRsRnVac1FPYTZhdmNJWnczamFHV1RTSjUvZDREUHphMFptcmNqb2lwdVEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc2Mjk3MDg3CWZpbGU6SW5kZXh4b3JjaXN0XzAuMS4yMl94NjRfZW4tVVMubXNpCm1RQ0MxRjd0RC9OdXJkakpJREVHeFV5cE1HQnc2VjJiN0xtOU85T2NQZm81cnZWUGZlZXI5V1VaNlhIcGRyRUhnYkJsK3Z1aW9yMmE0RU00bnErZ0JBPT0K",
+      "url": "https://github.com/matiaspalomeque/indexxorcist/releases/download/v0.1.22/Indexxorcist_0.1.22_x64_en-US.msi"
     },
     "windows-x86_64-msi": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUUzVpbllVUDFRSW1iaVVzMFV6bW9WZjZRTWlvbEZUWmhwajR4TWNqRzVGMWorUUF3U3YreU95bDQ1WjMrMGpFZFNOMG1lTEJyUzlJMGlPOTJ3UG45cFJnRGJpQ3VFeHc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc1OTU5NDAwCWZpbGU6SW5kZXh4b3JjaXN0XzAuMS4yMV94NjRfZW4tVVMubXNpCkRSckticmt4dTVheGUra3F4ak1IYmU2RVErNTVTdXJjeEhiTGpGMWVBRDYycE9BWEdBY1dYdTE2L2pBalFQU3daUEdISDFZM2NaeDZ5UnNQUVVyOUJnPT0K",
-      "url": "https://github.com/matiaspalomeque/indexxorcist/releases/download/v0.1.21/Indexxorcist_0.1.21_x64_en-US.msi"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUUzVpbllVUDFRSWo5S0N5YlBOQVZUSWFJblFvMEdudlZhbGdKUmNZZDNUM0lHQnVUUkFVakRsRnVac1FPYTZhdmNJWnczamFHV1RTSjUvZDREUHphMFptcmNqb2lwdVEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc2Mjk3MDg3CWZpbGU6SW5kZXh4b3JjaXN0XzAuMS4yMl94NjRfZW4tVVMubXNpCm1RQ0MxRjd0RC9OdXJkakpJREVHeFV5cE1HQnc2VjJiN0xtOU85T2NQZm81cnZWUGZlZXI5V1VaNlhIcGRyRUhnYkJsK3Z1aW9yMmE0RU00bnErZ0JBPT0K",
+      "url": "https://github.com/matiaspalomeque/indexxorcist/releases/download/v0.1.22/Indexxorcist_0.1.22_x64_en-US.msi"
     },
     "windows-x86_64-nsis": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUUzVpbllVUDFRSWpNamMxMkJwVytNaVg1Nk9tWVJWelVFNEtLY1ZWWmw4RVFUcFAzR2V6aEZHNmVyeEozdzArUnY4VzNhY2N1MndXOXNuWlo2cjRrMTQ3bXBuQ0FCWHdFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc1OTU5NDAwCWZpbGU6SW5kZXh4b3JjaXN0XzAuMS4yMV94NjQtc2V0dXAuZXhlCmF0dngvWGlZQlFIa0krT3R2N3lGYlZPVjZUaTdmZ01La1RLMXBLU3hidkpPSFo1eVFLMGl1blIvRUNaL3A0eURlcEI2djFrTXNva2hjWDhoNGNhbURRPT0K",
-      "url": "https://github.com/matiaspalomeque/indexxorcist/releases/download/v0.1.21/Indexxorcist_0.1.21_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUUzVpbllVUDFRSW9QNU5KZGtnNXM2RVh6eklCTDlPeXhjSlBtemlHOFIxdnBDY0JSQnFrM0pxK1FQTlh6b1kwVStHVmVrS2NUZHBPdjRmWVRmRlNoM1UzNVRFNm1kS3dNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc2Mjk3MDg3CWZpbGU6SW5kZXh4b3JjaXN0XzAuMS4yMl94NjQtc2V0dXAuZXhlCmhUNEQzUmhkT3V2SkJwNjBSYUh5RStxUU5XV2pmUjRLMGY5aXRsK2gwck53N2xELzc5dUhiOU5EM1I4RWFYZWgwQXM1dy9IMzJCUkd3dGZCeVJpYUNRPT0K",
+      "url": "https://github.com/matiaspalomeque/indexxorcist/releases/download/v0.1.22/Indexxorcist_0.1.22_x64-setup.exe"
     }
   }
 }

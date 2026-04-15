@@ -1,15 +1,19 @@
-import { AlertCircle, Loader2, RefreshCw, Search, X } from "lucide-react";
-import { useState } from "react";
+import { AlertCircle, Clock, Loader2, RefreshCw, Search, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import * as api from "../../api/tauri";
 import { useT } from "../../i18n";
 import { useDatabaseSelectionStore } from "../../store/databaseSelectionStore";
+import { useHistoryStore } from "../../store/historyStore";
 import { isActiveRunState, useMaintenanceStore } from "../../store/maintenanceStore";
 import { useProfileSettingsStore } from "../../store/profileSettingsStore";
 import { useProfileStore } from "../../store/profileStore";
 import { useUiStore } from "../../store/uiStore";
 import { DEFAULT_OPTIONS } from "../../types";
+import { computeDbAdvisorInfo, estimateRunDuration } from "../../utils/advisorUtils";
+import { formatDuration } from "../../utils/format";
 import { prepareNotificationPermission } from "../../utils/notifications";
-import { OptionsPanel } from "./OptionsPanel";
+import { AdvisorBanner, DbAgeBadge } from "./AdvisorBanner";
+import { OptionsPanel, OptionsSummaryLine } from "./OptionsPanel";
 
 export function DatabaseSelector() {
   const t = useT();
@@ -45,6 +49,40 @@ export function DatabaseSelector() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
   const [filterQuery, setFilterQuery] = useState("");
+
+  const historyRecords = useHistoryStore((s) => s.records);
+  const loadHistory = useHistoryStore((s) => s.loadHistory);
+
+  useEffect(() => {
+    void loadHistory(undefined, 200);
+  }, [loadHistory]);
+
+  const profileRecords = useMemo(
+    () => (activeProfileId ? historyRecords.filter((r) => r.profile_id === activeProfileId) : []),
+    [historyRecords, activeProfileId]
+  );
+
+  const dbInfoMap = useMemo(() => {
+    return new Map(databases.map((db) => [db, computeDbAdvisorInfo(db, profileRecords)]));
+  }, [databases, profileRecords]);
+
+  const estimatedSecs = useMemo(
+    () =>
+      estimateRunDuration(
+        [...selected],
+        dbInfoMap,
+        settings.parallel_databases,
+        settings.max_parallel_databases
+      ),
+    [selectedList, dbInfoMap, settings.parallel_databases, settings.max_parallel_databases]
+  );
+
+  const handleSelectUrgent = (urgentDbs: string[]) => {
+    if (!activeProfileId) return;
+    const next = new Set(selected);
+    urgentDbs.forEach((db) => next.add(db));
+    setSelectedForProfile(activeProfileId, Array.from(next));
+  };
 
   const filteredDatabases =
     filterQuery.trim() === ""
@@ -140,6 +178,17 @@ export function DatabaseSelector() {
 
   return (
     <div className="p-4 lg:p-6 pb-28">
+      <div className="mx-auto max-w-[1800px]">
+        {/* Advisor banner — full-width above the grid */}
+        {activeProfileId && (
+          <AdvisorBanner
+            databases={databases}
+            dbInfoMap={dbInfoMap}
+            hasHistory={profileRecords.length > 0}
+            onSelectUrgent={handleSelectUrgent}
+          />
+        )}
+      </div>
       <div className="mx-auto max-w-[1800px] grid grid-cols-1 2xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)] gap-4 lg:gap-6 items-start">
         <div className="min-h-[520px] bg-gray-100/60 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800 rounded-xl p-4 lg:p-5 flex flex-col">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between mb-4">
@@ -241,37 +290,46 @@ export function DatabaseSelector() {
                     {t("databases.noDataEmpty")}
                   </p>
                 ) : (
-                  filteredDatabases.map((db) => (
-                    <label
-                      key={db}
-                      className="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition-colors"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selected.has(db)}
-                        onChange={() => toggle(db)}
-                        className="rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-blue-500 focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-gray-800 dark:text-gray-200 font-mono truncate">
-                        {db}
-                      </span>
-                    </label>
-                  ))
+                  filteredDatabases.map((db) => {
+                    const info = dbInfoMap.get(db);
+                    return (
+                      <label
+                        key={db}
+                        className="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selected.has(db)}
+                          onChange={() => toggle(db)}
+                          className="rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-blue-500 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-800 dark:text-gray-200 font-mono truncate flex-1">
+                          {db}
+                        </span>
+                        {info && profileRecords.length > 0 && (
+                          <DbAgeBadge info={info} />
+                        )}
+                      </label>
+                    );
+                  })
                 )}
               </div>
             </div>
           )}
         </div>
 
-        <div className="min-h-0">
-          <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 lg:p-5 2xl:sticky 2xl:top-4">
-            <OptionsPanel
-              settings={settings}
-              onChange={(key, value) => {
-                if (activeProfileId) updateSetting(activeProfileId, key, value);
-              }}
-            />
-          </div>
+        <div className="min-h-0 2xl:sticky 2xl:top-4">
+          <details className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 lg:px-5">
+            <OptionsSummaryLine settings={settings} />
+            <div className="pb-4 lg:pb-5">
+              <OptionsPanel
+                settings={settings}
+                onChange={(key, value) => {
+                  if (activeProfileId) updateSetting(activeProfileId, key, value);
+                }}
+              />
+            </div>
+          </details>
         </div>
       </div>
 
@@ -282,12 +340,20 @@ export function DatabaseSelector() {
               <p className="text-xs text-gray-700 dark:text-gray-400 truncate">
                 {activeProfile.name} · {activeProfile.server}
               </p>
-              <p className="text-xs text-gray-600 dark:text-gray-500">
-                {t("databases.statusSelected", {
-                  selected: selected.size,
-                  total: databases.length,
-                })}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-gray-600 dark:text-gray-500">
+                  {t("databases.statusSelected", {
+                    selected: selected.size,
+                    total: databases.length,
+                  })}
+                </p>
+                {estimatedSecs !== null && selected.size > 0 && (
+                  <span className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                    <Clock size={11} className="flex-shrink-0" />
+                    ~{formatDuration(estimatedSecs)}
+                  </span>
+                )}
+              </div>
             </div>
             <button
               onClick={startMaintenance}
