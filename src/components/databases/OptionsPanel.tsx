@@ -1,3 +1,4 @@
+import { Settings } from "lucide-react";
 import { useT } from "../../i18n";
 import type { MaintenanceOptions } from "../../types";
 
@@ -118,6 +119,27 @@ export function OptionsPanel({ settings, onChange }: Props) {
         )}
       </div>
     </div>
+  );
+}
+
+export function OptionsSummaryLine({ settings }: { settings: MaintenanceOptions }) {
+  const t = useT();
+  const parts = [
+    `${t("options.rebuildThreshold")} ≥${settings.rebuild_threshold}%`,
+    settings.rebuild_online ? t("options.rebuildOnline") : null,
+    `${settings.retry_max_attempts} ${t("options.retry").toLowerCase()}`,
+    settings.parallel_databases
+      ? `${settings.max_parallel_databases}x ${t("options.parallel").toLowerCase()}`
+      : null,
+  ].filter(Boolean);
+
+  return (
+    <summary className="flex items-center gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden select-none py-2">
+      <Settings size={14} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
+      <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+        {parts.join(" · ")}
+      </span>
+    </summary>
   );
 }
 

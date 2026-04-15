@@ -313,6 +313,25 @@ const en: Translations = {
   "notification.finishedBody": "{profile}: {rebuilt} rebuilt, {reorganized} reorganized in {duration}",
   "notification.errorTitle": "Maintenance Error",
   "notification.errorBody": "{profile}: {message}",
+
+  // Smart Advisor (database selector)
+  "advisor.title": "Smart Advisor",
+  "advisor.subtitle": "Based on your maintenance history",
+  "advisor.noHistoryHint": "Predicts urgency & estimates run time",
+  "advisor.noHistory": "Run maintenance to unlock predictive insights for this profile.",
+  "advisor.urgencyHigh": "Urgent",
+  "advisor.urgencyMedium": "Moderate",
+  "advisor.urgencyLow": "Healthy",
+  "advisor.urgencyUnknown": "No data",
+  "advisor.estimatedTime": "Est. duration",
+  "advisor.estimatedTimeNA": "No data yet",
+  "advisor.topPriorities": "Top Priorities",
+  "advisor.selectUrgent": "Select {count} urgent",
+  "advisor.today": "Today",
+  "advisor.daysAgo": "{days}d ago",
+  "advisor.noMaintenance": "Never maintained",
+  "advisor.rebuildRate": "{pct}% rebuilt",
+  "advisor.runCount": "{count} run(s)",
 };
 
 const esAR: Translations = {
@@ -625,6 +644,25 @@ const esAR: Translations = {
   "notification.finishedBody": "{profile}: {rebuilt} reconstruidos, {reorganized} reorganizados en {duration}",
   "notification.errorTitle": "Error de Mantenimiento",
   "notification.errorBody": "{profile}: {message}",
+
+  // Smart Advisor (selector de bases de datos)
+  "advisor.title": "Asesor Inteligente",
+  "advisor.subtitle": "Basado en tu historial de mantenimiento",
+  "advisor.noHistoryHint": "Predice urgencia y estima duración",
+  "advisor.noHistory": "Ejecutá un mantenimiento para desbloquear análisis predictivos.",
+  "advisor.urgencyHigh": "Urgente",
+  "advisor.urgencyMedium": "Moderado",
+  "advisor.urgencyLow": "Saludable",
+  "advisor.urgencyUnknown": "Sin datos",
+  "advisor.estimatedTime": "Duración estimada",
+  "advisor.estimatedTimeNA": "Sin datos aún",
+  "advisor.topPriorities": "Prioridades Principales",
+  "advisor.selectUrgent": "Seleccionar {count} urgentes",
+  "advisor.today": "Hoy",
+  "advisor.daysAgo": "hace {days}d",
+  "advisor.noMaintenance": "Nunca mantenida",
+  "advisor.rebuildRate": "{pct}% reconstruidos",
+  "advisor.runCount": "{count} ejecución(es)",
 };
 
 export const translations: Record<Lang, Translations> = { en, "es-AR": esAR };
