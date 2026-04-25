@@ -1,39 +1,79 @@
 use crate::models::types::{DatabaseResult, MaintenanceSummary, RunRecord};
 use rusqlite::{params, Connection, Result};
 
-pub fn create_tables(conn: &Connection) -> Result<()> {
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS run_history (
-            id                        INTEGER PRIMARY KEY AUTOINCREMENT,
-            profile_id                TEXT    NOT NULL,
-            profile_name              TEXT    NOT NULL,
-            server                    TEXT    NOT NULL,
-            started_at                TEXT    NOT NULL,
-            finished_at               TEXT    NOT NULL,
-            databases_processed       INTEGER NOT NULL DEFAULT 0,
-            databases_failed          INTEGER NOT NULL DEFAULT 0,
-            databases_skipped         INTEGER NOT NULL DEFAULT 0,
-            total_indexes_rebuilt     INTEGER NOT NULL DEFAULT 0,
-            total_indexes_reorganized INTEGER NOT NULL DEFAULT 0,
-            total_indexes_skipped     INTEGER NOT NULL DEFAULT 0,
-            total_duration_secs       REAL    NOT NULL DEFAULT 0,
-            database_results          TEXT    NOT NULL DEFAULT '[]'
-        );",
-    )?;
+// Numbered, idempotent-in-order schema migrations. Each slot index + 1 is the
+// target PRAGMA user_version it installs. Appending a new entry is the only
+// way to evolve the schema — never edit or reorder existing ones.
+const MIGRATIONS: &[&str] = &[
+    // v1 — initial run_history table (pre-database_results column).
+    "CREATE TABLE IF NOT EXISTS run_history (
+        id                        INTEGER PRIMARY KEY AUTOINCREMENT,
+        profile_id                TEXT    NOT NULL,
+        profile_name              TEXT    NOT NULL,
+        server                    TEXT    NOT NULL,
+        started_at                TEXT    NOT NULL,
+        finished_at               TEXT    NOT NULL,
+        databases_processed       INTEGER NOT NULL DEFAULT 0,
+        databases_failed          INTEGER NOT NULL DEFAULT 0,
+        databases_skipped         INTEGER NOT NULL DEFAULT 0,
+        total_indexes_rebuilt     INTEGER NOT NULL DEFAULT 0,
+        total_indexes_reorganized INTEGER NOT NULL DEFAULT 0,
+        total_indexes_skipped     INTEGER NOT NULL DEFAULT 0,
+        total_duration_secs       REAL    NOT NULL DEFAULT 0
+    );",
+    // v2 — per-run JSON blob of per-database results.
+    "ALTER TABLE run_history ADD COLUMN database_results TEXT NOT NULL DEFAULT '[]';",
+    // v3 — composite index for `WHERE profile_id = ? ORDER BY id DESC`.
+    "CREATE INDEX IF NOT EXISTS idx_run_history_profile_id_desc
+     ON run_history (profile_id, id DESC);",
+];
 
-    // Per-column migration: each new column gets its own pragma_table_info check.
-    // If more columns are added in the future, consider replacing this with a
-    // schema_version table and sequential numbered migrations.
-    let has_col: bool = conn
-        .prepare("SELECT COUNT(*) FROM pragma_table_info('run_history') WHERE name='database_results'")?
+pub fn run_migrations(conn: &Connection) -> Result<()> {
+    bootstrap_legacy_version(conn)?;
+    let mut current: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+    for (i, sql) in MIGRATIONS.iter().enumerate() {
+        let target = (i + 1) as i64;
+        if target > current {
+            // Bundle the schema change and version stamp into a single
+            // transaction so a crash between them can't leave the DB at the
+            // new shape with the old version — which would re-run the same
+            // migration on next startup and fail (e.g. duplicate ADD COLUMN).
+            // user_version doesn't accept bound parameters; safe to format
+            // because target is derived from a static slice index, not input.
+            conn.execute_batch(&format!(
+                "BEGIN;\n{sql}\nPRAGMA user_version = {target};\nCOMMIT;"
+            ))?;
+            current = target;
+        }
+    }
+    Ok(())
+}
+
+/// Pre-`user_version` users may already have run_history at v1 or v2 shape
+/// with `user_version = 0`. Detect the shape once and stamp the correct
+/// version so the numbered migration loop can pick up from there.
+fn bootstrap_legacy_version(conn: &Connection) -> Result<()> {
+    let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+    if version != 0 {
+        return Ok(());
+    }
+    let table_exists: bool = conn
+        .prepare(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='run_history'",
+        )?
         .query_row([], |row| row.get::<_, i64>(0))
         .map(|count| count > 0)?;
-    if !has_col {
-        conn.execute_batch(
-            "ALTER TABLE run_history ADD COLUMN database_results TEXT NOT NULL DEFAULT '[]';",
-        )?;
+    if !table_exists {
+        return Ok(());
     }
-
+    let has_results_col: bool = conn
+        .prepare(
+            "SELECT COUNT(*) FROM pragma_table_info('run_history') WHERE name='database_results'",
+        )?
+        .query_row([], |row| row.get::<_, i64>(0))
+        .map(|count| count > 0)?;
+    let inferred = if has_results_col { 2 } else { 1 };
+    conn.execute_batch(&format!("PRAGMA user_version = {inferred};"))?;
     Ok(())
 }
 
@@ -144,4 +184,80 @@ pub fn delete_runs(conn: &Connection, profile_id: Option<&str>) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod migration_tests {
+    use super::*;
+
+    fn user_version(conn: &Connection) -> i64 {
+        conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap()
+    }
+
+    fn has_column(conn: &Connection, column: &str) -> bool {
+        conn.prepare("SELECT COUNT(*) FROM pragma_table_info('run_history') WHERE name=?1")
+            .unwrap()
+            .query_row(params![column], |row| row.get::<_, i64>(0))
+            .map(|c| c > 0)
+            .unwrap()
+    }
+
+    fn has_index(conn: &Connection, name: &str) -> bool {
+        conn.prepare("SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name=?1")
+            .unwrap()
+            .query_row(params![name], |row| row.get::<_, i64>(0))
+            .map(|c| c > 0)
+            .unwrap()
+    }
+
+    #[test]
+    fn fresh_database_migrates_to_latest() {
+        let conn = Connection::open_in_memory().unwrap();
+        assert_eq!(user_version(&conn), 0);
+
+        run_migrations(&conn).unwrap();
+
+        assert_eq!(user_version(&conn), MIGRATIONS.len() as i64);
+        assert!(has_column(&conn, "database_results"));
+        assert!(has_index(&conn, "idx_run_history_profile_id_desc"));
+    }
+
+    #[test]
+    fn legacy_v1_shape_is_detected_and_migrated() {
+        // Pre-user_version DB at v1 shape (no database_results column).
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(MIGRATIONS[0]).unwrap();
+        assert_eq!(user_version(&conn), 0);
+        assert!(!has_column(&conn, "database_results"));
+
+        run_migrations(&conn).unwrap();
+
+        assert_eq!(user_version(&conn), MIGRATIONS.len() as i64);
+        assert!(has_column(&conn, "database_results"));
+        assert!(has_index(&conn, "idx_run_history_profile_id_desc"));
+    }
+
+    #[test]
+    fn legacy_v2_shape_is_detected_without_duplicate_column() {
+        // Pre-user_version DB at v2 shape (table already has database_results).
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(MIGRATIONS[0]).unwrap();
+        conn.execute_batch(MIGRATIONS[1]).unwrap();
+        assert_eq!(user_version(&conn), 0);
+        assert!(has_column(&conn, "database_results"));
+
+        run_migrations(&conn).unwrap();
+
+        assert_eq!(user_version(&conn), MIGRATIONS.len() as i64);
+        assert!(has_index(&conn, "idx_run_history_profile_id_desc"));
+    }
+
+    #[test]
+    fn migrations_are_idempotent() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        let after_first = user_version(&conn);
+        run_migrations(&conn).unwrap();
+        assert_eq!(user_version(&conn), after_first);
+    }
 }

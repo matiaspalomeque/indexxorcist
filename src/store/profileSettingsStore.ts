@@ -2,8 +2,15 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { DEFAULT_OPTIONS, type MaintenanceOptions } from "../types";
 
+export interface ProfileTestStatus {
+  result: "success" | "error";
+  at: string; // ISO timestamp
+  error?: string;
+}
+
 interface ProfileSettingsState {
   byProfile: Record<string, MaintenanceOptions>;
+  lastTestByProfile: Record<string, ProfileTestStatus>;
   getSettings: (profileId: string) => MaintenanceOptions;
   setProfileSettings: (profileId: string, settings: MaintenanceOptions) => void;
   updateSetting: <K extends keyof MaintenanceOptions>(
@@ -12,12 +19,15 @@ interface ProfileSettingsState {
     value: MaintenanceOptions[K]
   ) => void;
   clearProfileSettings: (profileId: string) => void;
+  recordTestResult: (profileId: string, status: ProfileTestStatus) => void;
+  getLastTest: (profileId: string) => ProfileTestStatus | undefined;
 }
 
 export const useProfileSettingsStore = create<ProfileSettingsState>()(
   persist(
     (set, get) => ({
       byProfile: {},
+      lastTestByProfile: {},
       // Spread DEFAULT_OPTIONS first so that stored objects missing new fields
       // (e.g. after a schema update) still resolve to sensible defaults.
       getSettings: (profileId) => ({
@@ -43,14 +53,23 @@ export const useProfileSettingsStore = create<ProfileSettingsState>()(
         })),
       clearProfileSettings: (profileId) =>
         set((state) => {
-          const { [profileId]: _removed, ...rest } = state.byProfile;
-          return { byProfile: rest };
+          const { [profileId]: _removedSettings, ...restSettings } = state.byProfile;
+          const { [profileId]: _removedTest, ...restTests } = state.lastTestByProfile;
+          return { byProfile: restSettings, lastTestByProfile: restTests };
         }),
+      recordTestResult: (profileId, status) =>
+        set((state) => ({
+          lastTestByProfile: { ...state.lastTestByProfile, [profileId]: status },
+        })),
+      getLastTest: (profileId) => get().lastTestByProfile[profileId],
     }),
     {
       name: "indexxorcist-profile-settings-v1",
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ byProfile: state.byProfile }),
+      partialize: (state) => ({
+        byProfile: state.byProfile,
+        lastTestByProfile: state.lastTestByProfile,
+      }),
     }
   )
 );

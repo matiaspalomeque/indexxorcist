@@ -1,8 +1,15 @@
-import type { MaintenanceOptions, ServerProfile } from "../types";
+import type { Environment, MaintenanceOptions, ServerProfile } from "../types";
 
 export const PROFILE_TRANSFER_SCHEMA_VERSION = 1;
 
 const SUPPORTED_AUTH_TYPES = new Set(["sqlServer"]);
+const SUPPORTED_ENVIRONMENTS = new Set<Environment>([
+  "production",
+  "staging",
+  "uat",
+  "development",
+  "other",
+]);
 
 export interface ProfileTransferEntryV1 {
   name: string;
@@ -12,6 +19,7 @@ export interface ProfileTransferEntryV1 {
   username: string;
   encrypt: boolean;
   trust_server_certificate: boolean;
+  environment: Environment;
   settings: MaintenanceOptions;
 }
 
@@ -104,6 +112,20 @@ function parseTransferEntry(value: unknown): ProfileTransferEntryV1 {
     );
   }
 
+  // Older bundles (pre-environment) lack this field; default to "other".
+  let environment: Environment = "other";
+  if (value.environment !== undefined) {
+    if (
+      typeof value.environment !== "string" ||
+      !SUPPORTED_ENVIRONMENTS.has(value.environment as Environment)
+    ) {
+      throw new Error(
+        `Invalid import file: environment "${String(value.environment)}" is not supported.`
+      );
+    }
+    environment = value.environment as Environment;
+  }
+
   return {
     name: parseString(value.name, "name"),
     server: parseString(value.server, "server"),
@@ -115,6 +137,7 @@ function parseTransferEntry(value: unknown): ProfileTransferEntryV1 {
       value.trust_server_certificate,
       "trust_server_certificate"
     ),
+    environment,
     settings: parseSettings(value.settings),
   };
 }
@@ -172,6 +195,7 @@ export function buildProfileTransferBundle(
       username: profile.username,
       encrypt: profile.encrypt,
       trust_server_certificate: profile.trust_server_certificate,
+      environment: profile.environment ?? "other",
       settings: getSettings(profile.id),
     })),
   };
@@ -238,6 +262,7 @@ export function prepareImportedProfiles(
         password: "",
         encrypt: entry.encrypt,
         trust_server_certificate: entry.trust_server_certificate,
+        environment: entry.environment,
       },
       settings: { ...entry.settings },
     };

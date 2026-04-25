@@ -17,6 +17,22 @@ impl Default for AuthType {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum Environment {
+    Production,
+    Staging,
+    Uat,
+    Development,
+    Other,
+}
+
+impl Default for Environment {
+    fn default() -> Self {
+        Environment::Other
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Server profile — in-memory (includes password)
 // ---------------------------------------------------------------------------
@@ -33,6 +49,8 @@ pub struct ServerProfile {
     pub password: String,
     pub encrypt: bool,
     pub trust_server_certificate: bool,
+    #[serde(default)]
+    pub environment: Environment,
 }
 
 impl Default for ServerProfile {
@@ -47,6 +65,7 @@ impl Default for ServerProfile {
             password: String::new(),
             encrypt: true,
             trust_server_certificate: true,
+            environment: Environment::Other,
         }
     }
 }
@@ -66,6 +85,8 @@ pub struct ServerProfileOnDisk {
     pub username: String,
     pub encrypt: bool,
     pub trust_server_certificate: bool,
+    #[serde(default)]
+    pub environment: Environment,
 }
 
 impl From<ServerProfile> for ServerProfileOnDisk {
@@ -79,6 +100,7 @@ impl From<ServerProfile> for ServerProfileOnDisk {
             username: p.username,
             encrypt: p.encrypt,
             trust_server_certificate: p.trust_server_certificate,
+            environment: p.environment,
         }
     }
 }
@@ -95,6 +117,7 @@ impl ServerProfileOnDisk {
             password,
             encrypt: self.encrypt,
             trust_server_certificate: self.trust_server_certificate,
+            environment: self.environment,
         }
     }
 }

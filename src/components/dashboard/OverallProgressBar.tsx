@@ -11,6 +11,10 @@ interface Props {
   runState: string;
   isParallel: boolean;
   startedAtMs: number;
+  activeIndexesProcessed: number;
+  activeIndexesTotal: number;
+  runningDatabaseCount: number;
+  queuedDatabaseCount: number;
 }
 
 interface RunStateDisplay {
@@ -26,16 +30,22 @@ export const OverallProgressBar = memo(function OverallProgressBar({
   runState,
   isParallel,
   startedAtMs,
+  activeIndexesProcessed,
+  activeIndexesTotal,
+  runningDatabaseCount,
+  queuedDatabaseCount,
 }: Props) {
   const t = useT();
   const clampedCurrent = total === 0 ? 0 : Math.min(Math.max(current, 0), total);
   const completedDbs = Math.floor(clampedCurrent);
-  const displayPct = total === 0 ? 0 : Math.round((completedDbs / total) * 100);
   const barPct = total === 0 ? 0 : Math.round((clampedCurrent / total) * 100);
   
   const isActive = runState === "running" || runState === "paused";
   const elapsedSecs = useElapsedTime(startedAtMs, isActive);
-  const eta = runState === "running" ? calculateETA(completedDbs, total, elapsedSecs) : null;
+  const eta = runState === "running" && clampedCurrent > 0
+    ? calculateETA(clampedCurrent, total, elapsedSecs)
+    : null;
+  const hasActiveIndexProgress = activeIndexesTotal > 0;
 
   const getRunStateDisplay = (): RunStateDisplay => {
     switch (runState) {
@@ -55,7 +65,7 @@ export const OverallProgressBar = memo(function OverallProgressBar({
   const stateDisplay = getRunStateDisplay();
 
   return (
-    <div className="sticky top-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 shadow-lg">
+    <div className="sticky top-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 shadow-sm">
       <div className="px-4 lg:px-6 py-4">
         <div className="mx-auto max-w-[1800px]">
           {/* Top row: Profile info + Status */}
@@ -85,7 +95,7 @@ export const OverallProgressBar = memo(function OverallProgressBar({
               </div>
               {isParallel && (
                 <span className="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full">
-                  parallel
+                  {t("progress.parallel")}
                 </span>
               )}
             </div>
@@ -93,16 +103,32 @@ export const OverallProgressBar = memo(function OverallProgressBar({
 
           {/* Progress bar row */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="text-gray-600 dark:text-gray-400 font-medium">
                 {t("progress.label")}
               </span>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
                 <span className="text-gray-900 dark:text-white font-semibold">
-                  {completedDbs} / {total} databases ({displayPct}%)
+                  {t("progress.databasesComplete", { current: completedDbs, total })}
                 </span>
+                {hasActiveIndexProgress ? (
+                  <span className="text-gray-600 dark:text-gray-400">
+                    {t("progress.currentWork", {
+                      current: activeIndexesProcessed,
+                      total: activeIndexesTotal,
+                    })}
+                  </span>
+                ) : runningDatabaseCount > 0 ? (
+                  <span className="text-gray-600 dark:text-gray-400">
+                    {t("progress.discovering", { count: runningDatabaseCount })}
+                  </span>
+                ) : queuedDatabaseCount > 0 ? (
+                  <span className="text-gray-600 dark:text-gray-400">
+                    {t("progress.queued", { count: queuedDatabaseCount })}
+                  </span>
+                ) : null}
                 {elapsedSecs > 0 && (
-                  <div className="flex items-center gap-4 text-gray-600 dark:text-gray-400">
+                  <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
                     <div className="flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5" />
                       <span>{formatElapsedTime(elapsedSecs)}</span>
@@ -110,7 +136,7 @@ export const OverallProgressBar = memo(function OverallProgressBar({
                     {eta && (
                       <div className="flex items-center gap-1">
                         <Timer className="w-3.5 h-3.5" />
-                        <span>~{eta} remaining</span>
+                        <span>{t("progress.remaining", { eta })}</span>
                       </div>
                     )}
                   </div>
@@ -119,7 +145,7 @@ export const OverallProgressBar = memo(function OverallProgressBar({
             </div>
             <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-500 shadow-lg shadow-blue-500/30"
+                className="h-full bg-blue-600 dark:bg-blue-500 rounded-full transition-all duration-500"
                 style={{ width: `${barPct}%` }}
               />
             </div>

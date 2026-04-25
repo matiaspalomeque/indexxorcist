@@ -1,11 +1,31 @@
-// Rust-mirrored types — kept locally as fully-required interfaces to prevent
-// optional-field ambiguity that the auto-generated bindings.ts uses for
-// serde-defaulted fields. bindings.ts is the source of truth for IPC schema;
-// this file is the source of truth for frontend component usage.
+// Primitive union types (AuthType, MaintenanceAction) are derived from the
+// tauri-specta-generated bindings (src/bindings.ts). These are the cheap wins
+// for drift resistance — when Rust adds/removes an enum variant, tsc fails
+// here automatically. Composite types stay hand-written below because
+// `Required<>` does not propagate into nested type references (a derived
+// RunRecord would still reach the generated DatabaseResult with its optional
+// serde-defaulted fields), and tauri-specta-generated event types would
+// require a `collect_events!` wiring that isn't in place yet.
 //
-// AuthType values match Rust's #[serde(rename_all = "camelCase")]
+// The compile-time assertions at the bottom of this file guarantee the
+// hand-written composite types remain structurally compatible with the
+// generated ones. If any Rust struct field changes shape, one of those
+// assertions will fail to compile.
 
-export type AuthType = "sqlServer" | "windowsIntegrated" | "windowsCredentials";
+import type {
+  AuthType as GenAuthType,
+  DatabaseResult as GenDatabaseResult,
+  Environment as GenEnvironment,
+  IndexResult as GenIndexResult,
+  MaintenanceAction as GenMaintenanceAction,
+  MaintenanceOptions as GenMaintenanceOptions,
+  RunRecord as GenRunRecord,
+  ServerProfile as GenServerProfile,
+} from "../bindings";
+
+export type AuthType = GenAuthType;
+export type MaintenanceAction = GenMaintenanceAction;
+export type Environment = GenEnvironment;
 
 export interface ServerProfile {
   id: string;
@@ -17,6 +37,7 @@ export interface ServerProfile {
   password: string;
   encrypt: boolean;
   trust_server_certificate: boolean;
+  environment: Environment;
 }
 
 export interface MaintenanceOptions {
@@ -56,8 +77,6 @@ export interface IndexInfo {
   page_count: number;
 }
 
-export type MaintenanceAction = "REBUILD" | "REORGANIZE" | "SKIP";
-
 export interface IndexResult {
   schema_name: string;
   table_name: string;
@@ -68,7 +87,10 @@ export interface IndexResult {
   success: boolean;
   duration_secs: number;
   retry_attempts: number;
-  error?: string;
+  // `null` matches the wire format — Rust's `Option<String>` serializes as
+  // null when None, not as a missing field. Use `error ?? undefined` at sites
+  // passing this to DOM attributes that expect `string | undefined`.
+  error: string | null;
 }
 
 export interface DatabaseResult {
@@ -140,7 +162,9 @@ export interface DatabaseCardData {
   errors: string[];
 }
 
-// Event payload types
+// Event payload types — tauri-specta's `collect_events!` is not wired up, so
+// these are hand-mirrored against the `...Event` structs in
+// src-tauri/src/commands/maintenance.rs.
 
 export interface DbStartPayload {
   profile_id: string;
@@ -202,3 +226,30 @@ export type View = "profiles" | "databases" | "dashboard" | "summary" | "history
 
 // WizardView excludes global views (profiles home, history, insights) that aren't wizard steps
 export type WizardView = Exclude<View, "profiles" | "history" | "insights">;
+
+// ---------------------------------------------------------------------------
+// Compile-time drift assertions — verify hand-written types are structurally
+// compatible with the tauri-specta-generated ones. Any mismatch fails `tsc`.
+// ---------------------------------------------------------------------------
+
+type AssertCompat<Hand, Gen> =
+  // Hand must be assignable to Gen (we may have extra required where Gen is optional)…
+  Hand extends Gen
+    // …and Gen's required keys must all appear in Hand.
+    ? keyof Gen extends keyof Hand
+      ? true
+      : { missingFromHand: Exclude<keyof Gen, keyof Hand> }
+    : { handNotAssignableToGen: Hand };
+
+// Each alias constrains to `true` — if AssertCompat resolves to an error
+// object, the constraint fails and tsc reports it. Type aliases don't trip
+// `noUnusedLocals`, so we don't need `const` declarations with disables.
+type AssertTrue<T extends true> = T;
+
+// Exported so `noUnusedLocals` doesn't flag them. Each must resolve to `true`
+// or the constraint fails — any Rust-side drift surfaces as a tsc error here.
+export type _CheckServerProfile = AssertTrue<AssertCompat<ServerProfile, GenServerProfile>>;
+export type _CheckMaintenanceOptions = AssertTrue<AssertCompat<MaintenanceOptions, GenMaintenanceOptions>>;
+export type _CheckDatabaseResult = AssertTrue<AssertCompat<DatabaseResult, GenDatabaseResult>>;
+export type _CheckIndexResult = AssertTrue<AssertCompat<IndexResult, GenIndexResult>>;
+export type _CheckRunRecord = AssertTrue<AssertCompat<RunRecord, GenRunRecord>>;

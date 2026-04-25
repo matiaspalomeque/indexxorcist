@@ -43,8 +43,9 @@ export function useMaintenanceEvents() {
         ),
         listen<MaintenanceFinishedPayload>("maintenance:finished", (e) => {
           store().handleFinished(e.payload);
-          // Refresh history so the completed/stopped run is immediately visible
-          void useHistoryStore.getState().loadHistory(undefined, 100);
+          // Refresh history so the completed/stopped run is immediately visible.
+          // refreshHistory preserves the largest window any view has already requested.
+          void useHistoryStore.getState().refreshHistory();
           // Auto-navigate to summary if the user is viewing this profile's dashboard
           const ui = useUiStore.getState();
           if (

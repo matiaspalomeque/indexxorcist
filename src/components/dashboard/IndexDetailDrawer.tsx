@@ -1,9 +1,9 @@
-import { X } from "lucide-react";
+import { Copy, X } from "lucide-react";
 import { memo, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDialogA11y } from "../../hooks/useDialogA11y";
 import { useT } from "../../i18n";
-import type { DatabaseCardData, IndexDetail } from "../../types";
+import type { DatabaseCardData, IndexDetail, IndexStatus } from "../../types";
 
 interface Props {
   db: DatabaseCardData;
@@ -24,6 +24,8 @@ const STATUS_BADGE: Record<string, string> = {
   error: "bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-300",
 };
 
+type FilterKey = "all" | "errors" | "rebuild" | "reorganize" | IndexStatus;
+
 function Badge({ text, cls }: { text: string; cls: string }) {
   return (
     <span className={`inline-flex px-1.5 py-0.5 rounded text-xs border ${cls}`}>
@@ -32,9 +34,17 @@ function Badge({ text, cls }: { text: string; cls: string }) {
   );
 }
 
-const IndexRow = memo(function IndexRow({ idx }: { idx: IndexDetail }) {
+const IndexRow = memo(function IndexRow({
+  idx,
+  copyLabel,
+}: {
+  idx: IndexDetail;
+  copyLabel: string;
+}) {
   return (
-    <tr className="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+    <tr className={`border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 ${
+      idx.status === "processing" ? "bg-yellow-50/70 dark:bg-yellow-950/20" : ""
+    }`}>
       <td className="px-3 py-2 text-xs text-gray-700 dark:text-gray-400 font-mono whitespace-nowrap">
         {idx.schema_name}.{idx.table_name}
       </td>
@@ -74,10 +84,24 @@ const IndexRow = memo(function IndexRow({ idx }: { idx: IndexDetail }) {
           : "—"}
       </td>
       <td
-        className="px-3 py-2 text-xs text-red-500 dark:text-red-400 max-w-[320px] break-words"
+        className="px-3 py-2 text-xs text-red-500 dark:text-red-400 max-w-[320px]"
         title={idx.error}
       >
-        {idx.error ?? "—"}
+        {idx.error ? (
+          <div className="flex items-start gap-2">
+            <span className="break-words">{idx.error}</span>
+            <button
+              type="button"
+              onClick={() => void navigator.clipboard?.writeText(idx.error ?? "")}
+              aria-label={copyLabel}
+              className="mt-0.5 flex-shrink-0 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+            >
+              <Copy size={12} />
+            </button>
+          </div>
+        ) : (
+          "—"
+        )}
       </td>
     </tr>
   );
@@ -89,8 +113,55 @@ export function IndexDetailDrawer({ db, onClose }: Props) {
   useDialogA11y(dialogRef, onClose);
   const PAGE_SIZE = 100;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const visibleIndexes = useMemo(() => db.indexes.slice(0, visibleCount), [db.indexes, visibleCount]);
-  const hasMore = db.indexes.length > visibleCount;
+  const [filter, setFilter] = useState<FilterKey>("all");
+  const processingIndex = useMemo(
+    () => db.indexes.find((idx) => idx.status === "processing"),
+    [db.indexes],
+  );
+  const filterCounts = useMemo(() => {
+    const counts = {
+      all: db.indexes.length,
+      processing: 0,
+      pending: 0,
+      done: 0,
+      skipped: 0,
+      error: 0,
+      errors: 0,
+      rebuild: 0,
+      reorganize: 0,
+    };
+    for (const idx of db.indexes) {
+      counts[idx.status] += 1;
+      if (idx.error) counts.errors += 1;
+      if (idx.action === "REBUILD") counts.rebuild += 1;
+      if (idx.action === "REORGANIZE") counts.reorganize += 1;
+    }
+    return counts;
+  }, [db.indexes]);
+  const filteredIndexes = useMemo(() => {
+    const matches = (idx: IndexDetail): boolean => {
+      if (filter === "all") return true;
+      if (filter === "errors") return Boolean(idx.error);
+      if (filter === "rebuild") return idx.action === "REBUILD";
+      if (filter === "reorganize") return idx.action === "REORGANIZE";
+      return idx.status === filter;
+    };
+    const filtered = db.indexes.filter(matches);
+    if (filter !== "all") return filtered;
+    const processing = filtered.filter((idx) => idx.status === "processing");
+    const rest = filtered.filter((idx) => idx.status !== "processing");
+    return [...processing, ...rest];
+  }, [db.indexes, filter]);
+  const visibleIndexes = useMemo(() => filteredIndexes.slice(0, visibleCount), [filteredIndexes, visibleCount]);
+  const hasMore = filteredIndexes.length > visibleCount;
+  const filters: Array<{ key: FilterKey; label: string; count: number }> = [
+    { key: "all", label: t("drawer.filterAll"), count: filterCounts.all },
+    { key: "processing", label: t("drawer.filterProcessing"), count: filterCounts.processing },
+    { key: "errors", label: t("drawer.filterErrors"), count: filterCounts.errors },
+    { key: "rebuild", label: "REBUILD", count: filterCounts.rebuild },
+    { key: "reorganize", label: "REORGANIZE", count: filterCounts.reorganize },
+    { key: "skipped", label: t("drawer.filterSkipped"), count: filterCounts.skipped },
+  ];
   const headers = [
     t("drawer.colSchemaTable"),
     t("drawer.colIndex"),
@@ -117,7 +188,7 @@ export function IndexDetailDrawer({ db, onClose }: Props) {
         className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-t-2xl w-full max-h-[70vh] flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
+        <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
           <div>
             <h3 id="index-detail-title" className="font-semibold text-gray-900 dark:text-white">
               {db.name}
@@ -125,6 +196,11 @@ export function IndexDetailDrawer({ db, onClose }: Props) {
             <p className="text-xs text-gray-700 dark:text-gray-400 mt-0.5">
               {t("drawer.indexesTotal", { count: db.indexes.length })}
             </p>
+            {processingIndex && (
+              <p className="mt-2 max-w-[720px] truncate text-xs text-yellow-700 dark:text-yellow-300">
+                {t("drawer.processingNow")}: {processingIndex.schema_name}.{processingIndex.table_name} / {processingIndex.index_name}
+              </p>
+            )}
           </div>
           <button
             type="button"
@@ -150,10 +226,37 @@ export function IndexDetailDrawer({ db, onClose }: Props) {
           </div>
         )}
 
+        {db.indexes.length > 0 && (
+          <div className="flex flex-wrap gap-1 border-b border-gray-200 px-5 py-3 dark:border-gray-800">
+            {filters.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => {
+                  setFilter(item.key);
+                  setVisibleCount(PAGE_SIZE);
+                }}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  filter === item.key
+                    ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-950"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                }`}
+              >
+                {item.label}
+                <span className="ml-1 opacity-70">{item.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="overflow-auto flex-1">
           {db.indexes.length === 0 ? (
             <p className="text-center py-8 text-sm text-gray-600 dark:text-gray-500">
               {t("drawer.noIndexData")}
+            </p>
+          ) : filteredIndexes.length === 0 ? (
+            <p className="text-center py-8 text-sm text-gray-600 dark:text-gray-500">
+              {t("drawer.noFilteredIndexes")}
             </p>
           ) : (
             <table className="w-full min-w-[900px]">
@@ -171,7 +274,11 @@ export function IndexDetailDrawer({ db, onClose }: Props) {
               </thead>
               <tbody>
                 {visibleIndexes.map((idx) => (
-                  <IndexRow key={`${idx.schema_name}.${idx.table_name}.${idx.index_name}`} idx={idx} />
+                  <IndexRow
+                    key={`${idx.schema_name}.${idx.table_name}.${idx.index_name}`}
+                    idx={idx}
+                    copyLabel={t("drawer.copyError")}
+                  />
                 ))}
               </tbody>
             </table>
@@ -182,7 +289,7 @@ export function IndexDetailDrawer({ db, onClose }: Props) {
                 onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
                 className="px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
               >
-                {t("drawer.showMore", { count: db.indexes.length - visibleCount })}
+                {t("drawer.showMore", { count: filteredIndexes.length - visibleCount })}
               </button>
             </div>
           )}

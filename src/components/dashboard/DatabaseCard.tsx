@@ -23,21 +23,21 @@ interface Props {
 }
 
 const BORDER: Record<DatabaseCardState, string> = {
-  queued: "border-gray-300 dark:border-gray-600",
-  running: "border-blue-500 ring-2 ring-blue-500/20",
-  done: "border-green-500",
-  error: "border-red-500 ring-2 ring-red-500/20",
-  skipped: "border-amber-500",
-  stopped: "border-orange-500",
+  queued: "border-gray-200 dark:border-gray-800",
+  running: "border-blue-300 dark:border-blue-800",
+  done: "border-green-200 dark:border-green-900/70",
+  error: "border-red-300 dark:border-red-900/80",
+  skipped: "border-amber-300 dark:border-amber-900/70",
+  stopped: "border-orange-300 dark:border-orange-900/70",
 };
 
 const BG: Record<DatabaseCardState, string> = {
   queued: "bg-white dark:bg-gray-900",
-  running: "bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20",
-  done: "bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/10",
-  error: "bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/30 dark:to-red-900/10",
-  skipped: "bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/20 dark:to-amber-900/10",
-  stopped: "bg-gradient-to-br from-orange-50 to-orange-100/50 dark:from-orange-950/20 dark:to-orange-900/10",
+  running: "bg-blue-50 dark:bg-blue-950/20",
+  done: "bg-white dark:bg-gray-900",
+  error: "bg-red-50 dark:bg-red-950/20",
+  skipped: "bg-amber-50 dark:bg-amber-950/20",
+  stopped: "bg-orange-50 dark:bg-orange-950/20",
 };
 
 const STATE_COLOR: Record<DatabaseCardState, string> = {
@@ -82,14 +82,13 @@ function DatabaseCardComponent({ db, delay = 0, onSkip, skipPending = false }: P
   const ringTotal = completedWithoutIndexes ? 1 : totalIndexes;
   const ringProcessed = completedWithoutIndexes ? 1 : processed;
   const StateIcon = STATE_ICON[db.state];
+  const hasSkipControl = Boolean((db.state === "running" || db.state === "queued") && (onSkip || skipPending));
 
   return (
-    <div className="relative h-full">
+    <div className={`relative h-full rounded-lg border ${BORDER[db.state]} ${BG[db.state]} shadow-sm transition-colors`}>
       <button
         onClick={() => setDrawerOpen(true)}
-        className={`group relative w-full h-full text-left border-2 rounded-xl p-6 transition-all duration-300 transform-gpu ${
-          BORDER[db.state]
-        } ${BG[db.state]} hover:scale-[1.02] hover:shadow-xl focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 shadow-lg`}
+        className={`group relative w-full h-full text-left rounded-lg p-4 ${hasSkipControl ? "pb-14" : ""} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-950 hover:bg-black/[0.015] dark:hover:bg-white/[0.03]`}
         style={{
           animation: `fadeInUp 0.4s ease-out ${delay}ms backwards`,
         }}
@@ -102,20 +101,18 @@ function DatabaseCardComponent({ db, delay = 0, onSkip, skipPending = false }: P
         )}
 
         {/* Header Section */}
-        <div className="flex items-start gap-4 mb-4">
-          <div className="flex-shrink-0">
-            <div className="p-2 bg-white/80 dark:bg-gray-800/80 rounded-lg shadow-sm">
-              <Database className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-            </div>
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex-shrink-0 rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 p-2">
+            <Database className="w-4 h-4 text-gray-700 dark:text-gray-300" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-lg text-gray-900 dark:text-white truncate mb-1">
+            <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate">
               {db.name}
             </h3>
-            <div className="flex items-center gap-2">
+            <div className="mt-1 flex items-center gap-2">
               {StateIcon && (
                 <StateIcon 
-                  className={`w-4 h-4 ${STATE_COLOR[db.state]} ${
+                  className={`w-3.5 h-3.5 ${STATE_COLOR[db.state]} ${
                     db.state === 'running' ? 'animate-spin' : ''
                   }`} 
                 />
@@ -125,29 +122,30 @@ function DatabaseCardComponent({ db, delay = 0, onSkip, skipPending = false }: P
               </span>
             </div>
           </div>
+          <ProgressRing 
+            processed={ringProcessed} 
+            total={ringTotal} 
+            size={44} 
+            strokeWidth={4}
+            colorScheme={RING_COLOR[db.state]}
+            showPercentage={true}
+          />
         </div>
 
         {/* Progress Section */}
-        <div className="flex items-center justify-center mb-4">
-          <div className="flex flex-col items-center gap-2">
-            <ProgressRing 
-              processed={ringProcessed} 
-              total={ringTotal} 
-              size={72} 
-              strokeWidth={6}
-              colorScheme={RING_COLOR[db.state]}
-              showPercentage={true}
-            />
-            <div className="text-xs text-gray-600 dark:text-gray-400 font-medium">
-              {processed} / {totalIndexes} {t("dbCard.indexes")}
-            </div>
-          </div>
+        <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 text-xs dark:border-gray-800">
+          <span className="font-medium text-gray-900 dark:text-white">
+            {processed} / {totalIndexes}
+          </span>
+          <span className="text-gray-600 dark:text-gray-400">
+            {t("dbCard.indexes")}
+          </span>
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          <div className="flex items-center gap-1.5 text-xs">
-            <CheckCircle2 className="w-4 h-4 text-blue-500 dark:text-blue-400 flex-shrink-0" />
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="flex min-w-0 items-center gap-1.5 text-xs">
+            <CheckCircle2 className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
             <span className="text-blue-600 dark:text-blue-400 font-medium">
               {db.indexes_rebuilt}
             </span>
@@ -155,8 +153,8 @@ function DatabaseCardComponent({ db, delay = 0, onSkip, skipPending = false }: P
               {t("dbCard.rebuilt")}
             </span>
           </div>
-          <div className="flex items-center gap-1.5 text-xs">
-            <RefreshCw className="w-4 h-4 text-purple-500 dark:text-purple-400 flex-shrink-0" />
+          <div className="flex min-w-0 items-center gap-1.5 text-xs">
+            <RefreshCw className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400 flex-shrink-0" />
             <span className="text-purple-600 dark:text-purple-400 font-medium">
               {db.indexes_reorganized}
             </span>
@@ -164,8 +162,8 @@ function DatabaseCardComponent({ db, delay = 0, onSkip, skipPending = false }: P
               {t("dbCard.reorganized")}
             </span>
           </div>
-          <div className="flex items-center gap-1.5 text-xs">
-            <FastForward className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+          <div className="flex min-w-0 items-center gap-1.5 text-xs">
+            <FastForward className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
             <span className="text-gray-600 dark:text-gray-400 font-medium">
               {db.indexes_skipped}
             </span>
@@ -177,7 +175,7 @@ function DatabaseCardComponent({ db, delay = 0, onSkip, skipPending = false }: P
 
         {/* Duration Footer */}
         {db.duration_secs > 0 && (
-          <div className="flex items-center gap-1.5 pt-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="mt-3 flex items-center gap-1.5 border-t border-gray-100 pt-3 dark:border-gray-800">
             <Clock className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
             <span className="text-xs text-gray-600 dark:text-gray-400">
               {fmt(db.duration_secs)}s
@@ -186,15 +184,15 @@ function DatabaseCardComponent({ db, delay = 0, onSkip, skipPending = false }: P
         )}
       </button>
 
-      {(db.state === "running" || db.state === "queued") && (onSkip || skipPending) && (
+      {hasSkipControl && (
         <button
           onClick={() => onSkip?.(db.name)}
           disabled={skipPending}
           aria-label={t("controls.skipDb")}
-          className={`absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all shadow-sm backdrop-blur-sm border ${
+          className={`absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors border ${
             skipPending
               ? "bg-white/70 dark:bg-gray-800/70 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-              : "bg-white/90 dark:bg-gray-800/90 border-amber-400 dark:border-amber-600 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-white dark:hover:bg-amber-600 dark:hover:text-white hover:shadow-md"
+              : "bg-white dark:bg-gray-900 border-amber-400 dark:border-amber-600 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40"
           }`}
         >
           {skipPending ? <Loader2 size={12} className="animate-spin" /> : <SkipForward size={12} />}

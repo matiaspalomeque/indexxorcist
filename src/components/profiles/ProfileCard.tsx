@@ -1,143 +1,212 @@
-import { CheckCircle, Copy, Download, Edit2, Trash2, XCircle, Zap } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Pin, XCircle, Zap } from "lucide-react";
 import { useState } from "react";
-import * as api from "../../api/tauri";
 import { useT } from "../../i18n";
 import { useProfileStore } from "../../store/profileStore";
-import { useUiStore } from "../../store/uiStore";
-import type { ServerProfile } from "../../types";
+import type { RunRecord, ServerProfile } from "../../types";
+import { envVisuals, relativeTime } from "../../utils/profileUi";
 import { ConfirmDialog } from "../shared/ConfirmDialog";
-
-type TestStatus = "idle" | "testing" | "success" | "error";
+import { ProfileActionMenu } from "./ProfileActionMenu";
+import { useProfileActions, type LocalTestStatus } from "./useProfileActions";
+import type { ProfileTestStatus } from "../../store/profileSettingsStore";
 
 interface Props {
   profile: ServerProfile;
+  lastRun?: RunRecord;
   onEdit: () => void;
   onDuplicate: () => void;
   onExport: () => void;
 }
 
-export function ProfileCard({ profile, onEdit, onDuplicate, onExport }: Props) {
+export function ProfileCard({ profile, lastRun, onEdit, onDuplicate, onExport }: Props) {
   const t = useT();
   const { remove } = useProfileStore();
-  const openProfileTab = useUiStore((s) => s.openProfileTab);
-  const connectedProfileIds = useUiStore((s) => s.connectedProfileIds);
-  const [testStatus, setTestStatus] = useState<TestStatus>("idle");
-  const [testError, setTestError] = useState("");
+  const {
+    localStatus,
+    lastTest,
+    alreadyOpened,
+    isPinned,
+    handleTest,
+    handleConnect,
+    togglePin,
+  } = useProfileActions(profile);
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const alreadyOpened = connectedProfileIds.includes(profile.id);
 
-  const handleTest = async () => {
-    setTestStatus("testing");
-    setTestError("");
-    try {
-      await api.testConnection(profile.id);
-      setTestStatus("success");
-    } catch (e) {
-      setTestError(String(e));
-      setTestStatus("error");
-    }
-  };
+  const visuals = envVisuals(profile.environment);
+  const envShort = t(`env.short.${profile.environment ?? "other"}`);
 
-  const handleConnect = () => {
-    openProfileTab(profile.id);
-  };
+  const statusDot = renderStatusDot(t, localStatus, lastTest);
 
   return (
-    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 h-full flex flex-col">
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-900 dark:text-white truncate">{profile.name}</h3>
-        </div>
+    <div className="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl h-full flex">
+      <div className={`w-1 flex-shrink-0 rounded-l-xl ${visuals.rail}`} aria-hidden />
 
-        <div className="flex items-center gap-2 ml-4 flex-shrink-0">
-          {testStatus === "success" && (
-            <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-              <CheckCircle size={12} /> {t("profileCard.connected")}
-            </span>
-          )}
-          {testStatus === "error" && (
-            <span
-              className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400"
-              title={testError}
+      <div className="flex-1 min-w-0 p-4 flex flex-col">
+        <div className="flex items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              {isPinned && (
+                <Pin
+                  size={12}
+                  className="text-blue-500 fill-blue-500"
+                  aria-label={t("profileCard.pinned")}
+                />
+              )}
+              <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+                {profile.name}
+              </h3>
+              <EnvChip env={profile.environment} short={envShort} t={t} />
+            </div>
+            <p className="text-sm text-gray-700 dark:text-gray-400 mt-0.5 truncate">
+              {profile.server}:{profile.port}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5 truncate">
+              {profile.username} · {t("profileCard.authSql")}
+              {profile.encrypt && ` · ${t("profileCard.tls")}`}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={handleTest}
+              disabled={localStatus === "testing"}
+              className="p-1.5 text-gray-500 hover:text-yellow-500 transition-colors disabled:opacity-50"
+              title={t("profileCard.testConnection")}
+              aria-label={t("profileCard.testConnection")}
             >
-              <XCircle size={12} /> {t("profileCard.failed")}
+              <Zap size={15} className={localStatus === "testing" ? "animate-pulse" : ""} />
+            </button>
+
+            <ProfileActionMenu
+              isPinned={isPinned}
+              onTogglePin={togglePin}
+              onEdit={onEdit}
+              onDuplicate={onDuplicate}
+              onExport={onExport}
+              onDelete={() => setShowDeleteConfirm(true)}
+            />
+          </div>
+        </div>
+
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 space-y-1.5">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 min-w-0 truncate">
+              {statusDot}
             </span>
+            <span className="text-gray-500 dark:text-gray-500 truncate">
+              {renderLastRun(lastRun, t)}
+            </span>
+          </div>
+
+          {profile.trust_server_certificate && (
+            <div
+              className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400"
+              title={t("profileCard.trustCertWarningTooltip")}
+            >
+              <AlertTriangle size={12} />
+              {t("profileCard.trustCertWarning")}
+            </div>
           )}
+        </div>
 
-          <button
-            onClick={handleTest}
-            disabled={testStatus === "testing"}
-            className="p-1.5 text-gray-400 hover:text-yellow-500 transition-colors disabled:opacity-50"
-            title={t("profileCard.testConnection")}
-          >
-            <Zap size={15} className={testStatus === "testing" ? "animate-pulse" : ""} />
-          </button>
+        {showDeleteConfirm && (
+          <ConfirmDialog
+            title={t("confirm.deleteProfileTitle")}
+            message={t("confirm.deleteProfileMessage", { name: profile.name })}
+            confirmLabel={t("confirm.deleteProfileConfirm")}
+            cancelLabel={t("confirm.cancel")}
+            variant="danger"
+            onConfirm={() => {
+              remove(profile.id);
+              setShowDeleteConfirm(false);
+            }}
+            onCancel={() => setShowDeleteConfirm(false)}
+          />
+        )}
 
+        <div className="mt-auto pt-3 flex items-center justify-end gap-2">
           <button
-            onClick={onEdit}
-            className="p-1.5 text-gray-400 hover:text-blue-500 transition-colors"
-            title={t("profileCard.edit")}
+            onClick={handleConnect}
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg transition-colors"
           >
-            <Edit2 size={15} />
-          </button>
-
-          <button
-            onClick={onDuplicate}
-            className="p-1.5 text-gray-400 hover:text-indigo-500 transition-colors"
-            title={t("profileCard.duplicate")}
-          >
-            <Copy size={15} />
-          </button>
-
-          <button
-            onClick={onExport}
-            className="p-1.5 text-gray-400 hover:text-emerald-500 transition-colors"
-            title={t("profileCard.export")}
-          >
-            <Download size={15} />
-          </button>
-
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
-            title={t("profileCard.delete")}
-          >
-            <Trash2 size={15} />
+            {alreadyOpened ? t("profileCard.switchToTab") : t("profileCard.connect")}
           </button>
         </div>
-      </div>
-
-      <p className="text-sm text-gray-700 dark:text-gray-400 mt-0.5">
-        {profile.server}:{profile.port}
-      </p>
-      <p className="text-sm text-gray-500 dark:text-gray-500">
-        {profile.username}
-      </p>
-
-      {showDeleteConfirm && (
-        <ConfirmDialog
-          title={t("confirm.deleteProfileTitle")}
-          message={t("confirm.deleteProfileMessage", { name: profile.name })}
-          confirmLabel={t("confirm.deleteProfileConfirm")}
-          cancelLabel={t("confirm.cancel")}
-          variant="danger"
-          onConfirm={() => { remove(profile.id); setShowDeleteConfirm(false); }}
-          onCancel={() => setShowDeleteConfirm(false)}
-        />
-      )}
-
-      <div className="mt-auto pt-3 flex items-center justify-end gap-2">
-        {profile.encrypt && (
-          <span className="text-xs text-gray-600 dark:text-gray-500">{t("profileCard.tls")}</span>
-        )}
-        <button
-          onClick={handleConnect}
-          disabled={alreadyOpened}
-          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-400 text-white text-xs font-medium rounded-lg transition-colors"
-        >
-          {alreadyOpened ? t("profileCard.alreadyOpened") : t("profileCard.connect")}
-        </button>
       </div>
     </div>
+  );
+}
+
+function renderStatusDot(
+  t: ReturnType<typeof useT>,
+  local: LocalTestStatus,
+  lastTest: ProfileTestStatus | undefined
+) {
+  if (local === "testing") {
+    return (
+      <>
+        <Zap size={12} className="text-yellow-500 animate-pulse" />
+        {t("profileCard.testing")}
+      </>
+    );
+  }
+  if (!lastTest) {
+    return (
+      <>
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+        {t("profileCard.statusUntested")}
+      </>
+    );
+  }
+  const rt = relativeTime(lastTest.at);
+  const when = t(rt.key, rt.values);
+  if (lastTest.result === "success") {
+    return (
+      <>
+        <CheckCircle2 size={12} className="text-green-500" />
+        {rt.key === "profileCard.timeJustNow"
+          ? t("profileCard.statusVerifiedJustNow")
+          : t("profileCard.statusVerifiedAt", { when })}
+      </>
+    );
+  }
+  return (
+    <span title={lastTest.error} className="flex items-center gap-1.5 text-red-600 dark:text-red-400">
+      <XCircle size={12} />
+      {t("profileCard.statusFailedAt", { when })}
+    </span>
+  );
+}
+
+function renderLastRun(lastRun: RunRecord | undefined, t: ReturnType<typeof useT>) {
+  if (!lastRun) return t("profileCard.lastRunNever");
+  const rt = relativeTime(lastRun.finished_at);
+  const when = t(rt.key, rt.values);
+  const dbs = t("profileCard.lastRunDbs", { count: lastRun.databases_processed });
+  const failed =
+    lastRun.databases_failed > 0
+      ? ` · ${t("profileCard.lastRunFailed", { count: lastRun.databases_failed })}`
+      : "";
+  return `${t("profileCard.lastRun", { when })} · ${dbs}${failed}`;
+}
+
+function EnvChip({
+  env,
+  short,
+  t,
+}: {
+  env: ServerProfile["environment"] | undefined;
+  short: string;
+  t: ReturnType<typeof useT>;
+}) {
+  if (!env || env === "other") return null;
+  const v = envVisuals(env);
+  return (
+    <span
+      className={`text-[10px] font-semibold tracking-wider px-1.5 py-0.5 rounded border ${v.chipBg} ${v.chipText} ${v.chipBorder}`}
+      title={t(`env.${env}`)}
+    >
+      {short}
+    </span>
   );
 }
