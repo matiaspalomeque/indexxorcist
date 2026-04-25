@@ -51,7 +51,12 @@ pub fn run() {
     builder
         .export(
             specta_typescript::Typescript::default()
-                .bigint(specta_typescript::BigIntExportBehavior::Number),
+                .bigint(specta_typescript::BigIntExportBehavior::Number)
+                // tauri-specta emits a few infrastructure imports
+                // (TAURI_CHANNEL, __makeEvents__) for future event/channel
+                // wiring. `@ts-nocheck` keeps tsc's noUnusedLocals quiet on
+                // this generated file once any project source imports from it.
+                .header("// @ts-nocheck\n"),
             "../src/bindings.ts",
         )
         .expect("Failed to export TypeScript bindings");
@@ -72,7 +77,7 @@ pub fn run() {
                 .expect("Failed to create app data dir");
             let conn = rusqlite::Connection::open(&db_path)
                 .expect("Failed to open history database");
-            db::history::create_tables(&conn).expect("Failed to create history tables");
+            db::history::run_migrations(&conn).expect("Failed to migrate history database");
 
             app.manage(AppState {
                 control_txs: Arc::new(Mutex::new(HashMap::new())),

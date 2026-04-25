@@ -57,7 +57,14 @@ fn write_disk_profiles(
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     let json = serde_json::to_string_pretty(profiles).map_err(|e| e.to_string())?;
-    fs::write(path, json).map_err(|e| e.to_string())
+    // Atomic replace: write to a sibling temp file then rename over the target
+    // so a crash mid-write can't leave profiles.json half-written.
+    let tmp = path.with_extension("json.tmp");
+    fs::write(&tmp, json).map_err(|e| format!("Failed to write profiles temp file: {e}"))?;
+    fs::rename(&tmp, &path).map_err(|e| {
+        let _ = fs::remove_file(&tmp);
+        format!("Failed to commit profiles file: {e}")
+    })
 }
 
 fn upsert_disk_profile(profiles: &mut Vec<ServerProfileOnDisk>, disk_profile: ServerProfileOnDisk) {
@@ -83,26 +90,27 @@ fn load_password_map() -> HashMap<String, String> {
 }
 
 /// Write the consolidated password map to a single keychain entry.
-fn save_password_map(map: &HashMap<String, String>) {
-    let entry = keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT);
-    if let Ok(entry) = entry {
-        let json = serde_json::to_string(map).unwrap_or_default();
-        if let Err(e) = entry.set_password(&json) {
-            eprintln!("Failed to store consolidated passwords in keychain: {e}");
-        }
-    }
+/// Errors are propagated so callers can surface keychain failures instead of
+/// silently succeeding after the disk side of a save/delete already committed.
+fn save_password_map(map: &HashMap<String, String>) -> Result<(), String> {
+    let entry = keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT)
+        .map_err(|e| format!("Failed to access keychain: {e}"))?;
+    let json = serde_json::to_string(map).map_err(|e| e.to_string())?;
+    entry
+        .set_password(&json)
+        .map_err(|e| format!("Failed to write passwords to keychain: {e}"))
 }
 
-fn store_password(profile_id: &str, password: &str) {
+fn store_password(profile_id: &str, password: &str) -> Result<(), String> {
     // Empty password means "do not update" — preserves the existing keychain entry.
     // SQL Server auth always requires a password, so an empty value here signals
     // that the user left the field blank during an edit (intending no change).
     if password.is_empty() {
-        return;
+        return Ok(());
     }
     let mut map = load_password_map();
     map.insert(profile_id.to_string(), password.to_string());
-    save_password_map(&map);
+    save_password_map(&map)
 }
 
 fn resolve_duplicate_password(source_password: &str, requested_password: &str) -> String {
@@ -113,11 +121,12 @@ fn resolve_duplicate_password(source_password: &str, requested_password: &str) -
     }
 }
 
-fn delete_password(profile_id: &str) {
+fn delete_password(profile_id: &str) -> Result<(), String> {
     let mut map = load_password_map();
     if map.remove(profile_id).is_some() {
-        save_password_map(&map);
+        save_password_map(&map)?;
     }
+    Ok(())
 }
 
 #[specta::specta]
@@ -147,13 +156,17 @@ pub async fn save_server_profile(
 ) -> Result<(), String> {
     let _guard = state.profile_io_lock.lock().await;
 
-    // Store password in OS keychain; never write it to profiles.json
-    store_password(&profile.id, &profile.password);
-
+    // Commit to disk first — it's the durable record of which profiles exist.
+    // The keychain is trailing state: if the keychain write fails after disk
+    // succeeds, the user sees the profile and is prompted to re-enter the
+    // password on next connect, which is recoverable. The reverse ordering
+    // would leave keychain entries for profiles that never made it to disk.
     let disk_profile = ServerProfileOnDisk::from(profile.clone());
     let mut profiles = load_disk_profiles(&app)?;
     upsert_disk_profile(&mut profiles, disk_profile);
-    write_disk_profiles(&app, &profiles)
+    write_disk_profiles(&app, &profiles)?;
+
+    store_password(&profile.id, &profile.password)
 }
 
 #[specta::specta]
@@ -185,17 +198,23 @@ pub async fn duplicate_server_profile(
         return Err(format!("Profile id '{}' already exists", profile.id));
     }
 
+    // Compute the password to copy before touching disk, but only commit it to
+    // the keychain after the disk write succeeds (see save_server_profile for
+    // the ordering rationale).
     let mut pw_map = load_password_map();
     let source_password = pw_map.get(&source_id).cloned().unwrap_or_default();
     let resolved_password = resolve_duplicate_password(&source_password, &profile.password);
-    if !resolved_password.is_empty() {
-        pw_map.insert(profile.id.clone(), resolved_password);
-        save_password_map(&pw_map);
-    }
 
-    let disk_profile = ServerProfileOnDisk::from(profile.clone());
+    let new_profile_id = profile.id.clone();
+    let disk_profile = ServerProfileOnDisk::from(profile);
     upsert_disk_profile(&mut profiles, disk_profile);
-    write_disk_profiles(&app, &profiles)
+    write_disk_profiles(&app, &profiles)?;
+
+    if !resolved_password.is_empty() {
+        pw_map.insert(new_profile_id, resolved_password);
+        save_password_map(&pw_map)?;
+    }
+    Ok(())
 }
 
 #[specta::specta]
@@ -206,10 +225,12 @@ pub async fn delete_server_profile(
     id: String,
 ) -> Result<(), String> {
     let _guard = state.profile_io_lock.lock().await;
-    delete_password(&id);
+    // Remove from disk first so a failed write can't leave an orphan profile
+    // whose password has already been purged from the keychain.
     let mut profiles = load_disk_profiles(&app)?;
     profiles.retain(|p| p.id != id);
-    write_disk_profiles(&app, &profiles)
+    write_disk_profiles(&app, &profiles)?;
+    delete_password(&id)
 }
 
 #[cfg(test)]
