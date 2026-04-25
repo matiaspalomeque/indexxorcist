@@ -19,6 +19,7 @@ const baseProfile: ServerProfile = {
   password: "secret",
   encrypt: true,
   trust_server_certificate: false,
+  environment: "production",
 };
 
 describe("profileTransfer", () => {
@@ -58,6 +59,7 @@ describe("profileTransfer", () => {
         username: "sa",
         encrypt: true,
         trust_server_certificate: false,
+        environment: "production",
         settings,
       },
     ]);
@@ -131,6 +133,7 @@ describe("profileTransfer", () => {
           password: "",
           encrypt: true,
           trust_server_certificate: true,
+          environment: "other",
         },
         settings: DEFAULT_OPTIONS,
       },
@@ -145,6 +148,7 @@ describe("profileTransfer", () => {
           password: "",
           encrypt: false,
           trust_server_certificate: false,
+          environment: "other",
         },
         settings: { ...DEFAULT_OPTIONS, rebuild_threshold: 55 },
       },

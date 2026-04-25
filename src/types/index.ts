@@ -15,6 +15,7 @@
 import type {
   AuthType as GenAuthType,
   DatabaseResult as GenDatabaseResult,
+  Environment as GenEnvironment,
   IndexResult as GenIndexResult,
   MaintenanceAction as GenMaintenanceAction,
   MaintenanceOptions as GenMaintenanceOptions,
@@ -24,6 +25,7 @@ import type {
 
 export type AuthType = GenAuthType;
 export type MaintenanceAction = GenMaintenanceAction;
+export type Environment = GenEnvironment;
 
 export interface ServerProfile {
   id: string;
@@ -35,6 +37,7 @@ export interface ServerProfile {
   password: string;
   encrypt: boolean;
   trust_server_certificate: boolean;
+  environment: Environment;
 }
 
 export interface MaintenanceOptions {

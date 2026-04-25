@@ -3,6 +3,7 @@ import * as api from "../api/tauri";
 import { useDatabaseSelectionStore } from "./databaseSelectionStore";
 import { useMaintenanceStore } from "./maintenanceStore";
 import { useProfileSettingsStore } from "./profileSettingsStore";
+import { useProfilesViewStore } from "./profilesViewStore";
 import { useUiStore } from "./uiStore";
 import type { ServerProfile } from "../types";
 import type { PreparedImportedProfile } from "../utils/profileTransfer";
@@ -101,6 +102,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
         useMaintenanceStore.getState().resetProfile(id);
         useDatabaseSelectionStore.getState().clearProfileSelection(id);
         useProfileSettingsStore.getState().clearProfileSettings(id);
+        useProfilesViewStore.getState().forgetProfile(id);
       }
     }
   },

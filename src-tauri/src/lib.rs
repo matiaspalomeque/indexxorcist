@@ -36,6 +36,7 @@ pub fn run() {
             commands::profiles::duplicate_server_profile,
             commands::profiles::delete_server_profile,
             commands::database::test_connection,
+            commands::database::test_profile_connection,
             commands::database::get_databases,
             commands::maintenance::run_maintenance,
             commands::maintenance::pause_maintenance,

@@ -23,6 +23,17 @@ export const deleteServerProfile = (id: string): Promise<void> =>
 export const testConnection = (profileId: string): Promise<void> =>
   invoke("test_connection", { profileId });
 
+export const testProfileConnection = (
+  profile: ServerProfile,
+  fallbackPasswordProfileId?: string
+): Promise<void> =>
+  invoke("test_profile_connection", {
+    profile,
+    ...(fallbackPasswordProfileId != null
+      ? { fallbackPasswordProfileId }
+      : {}),
+  });
+
 export const getDatabases = (profileId: string): Promise<string[]> =>
   invoke("get_databases", { profileId });
 
