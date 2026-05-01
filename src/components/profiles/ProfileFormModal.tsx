@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, Eye, EyeOff, X, XCircle, Zap } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as api from "../../api/tauri";
 import { useT } from "../../i18n";
@@ -40,6 +40,7 @@ export function ProfileFormModal(props: Props) {
   const isNew = props.mode === "create";
   const isDuplicate = props.mode === "duplicate";
   const dialogRef = useRef<HTMLDivElement>(null);
+  const fieldPrefix = useId();
   useDialogA11y(dialogRef, onClose);
 
   const [form, setForm] = useState<ServerProfile>(() => {
@@ -62,8 +63,20 @@ export function ProfileFormModal(props: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [testState, setTestState] = useState<TestState>({ kind: "idle" });
 
-  const set = (key: keyof ServerProfile, value: unknown) =>
+  const set = (key: keyof ServerProfile, value: unknown) => {
+    setError("");
+    if (
+      key === "server" ||
+      key === "port" ||
+      key === "username" ||
+      key === "password" ||
+      key === "encrypt" ||
+      key === "trust_server_certificate"
+    ) {
+      setTestState({ kind: "idle" });
+    }
     setForm((f) => ({ ...f, [key]: value }));
+  };
 
   const connStringPreview = useMemo(
     () =>
@@ -79,20 +92,30 @@ export function ProfileFormModal(props: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.server || !form.username) {
+    const profileToSave = {
+      ...form,
+      name: form.name.trim(),
+      server: form.server.trim(),
+      username: form.username.trim(),
+    };
+    if (!profileToSave.name || !profileToSave.server || !profileToSave.username) {
       setError(t("profileForm.validationError"));
       return;
     }
-    if (isNew && !form.password) {
+    if (!Number.isInteger(profileToSave.port) || profileToSave.port < 1 || profileToSave.port > 65535) {
+      setError(t("profileForm.portInvalid"));
+      return;
+    }
+    if (isNew && !profileToSave.password) {
       setError(t("profileForm.passwordRequired"));
       return;
     }
     setSaving(true);
     try {
       if (props.mode === "duplicate") {
-        await duplicate(props.sourceProfile.id, form);
+        await duplicate(props.sourceProfile.id, profileToSave);
       } else {
-        await save(form);
+        await save(profileToSave);
       }
       onClose();
     } catch (err) {
@@ -103,27 +126,37 @@ export function ProfileFormModal(props: Props) {
   };
 
   const handleTest = async () => {
-    if (!form.server || !form.username) {
+    const profileToTest = {
+      ...form,
+      name: form.name.trim(),
+      server: form.server.trim(),
+      username: form.username.trim(),
+    };
+    if (!profileToTest.server || !profileToTest.username) {
       setTestState({ kind: "error", message: t("profileForm.testInFormRequired") });
+      return;
+    }
+    if (!Number.isInteger(profileToTest.port) || profileToTest.port < 1 || profileToTest.port > 65535) {
+      setTestState({ kind: "error", message: t("profileForm.portInvalid") });
       return;
     }
 
     const fallbackPasswordProfileId =
-      form.password === ""
+      profileToTest.password === ""
         ? props.mode === "edit"
           ? props.profile.id
           : props.mode === "duplicate"
           ? props.sourceProfile.id
           : undefined
         : undefined;
-    if (!form.password && !fallbackPasswordProfileId) {
+    if (!profileToTest.password && !fallbackPasswordProfileId) {
       setTestState({ kind: "error", message: t("profileForm.passwordRequired") });
       return;
     }
 
     setTestState({ kind: "running" });
     try {
-      await api.testProfileConnection(form, fallbackPasswordProfileId);
+      await api.testProfileConnection(profileToTest, fallbackPasswordProfileId);
       setTestState({ kind: "success" });
     } catch (err) {
       setTestState({ kind: "error", message: String(err) });
@@ -152,19 +185,22 @@ export function ProfileFormModal(props: Props) {
             type="button"
             onClick={onClose}
             className="text-gray-400 hover:text-gray-700 dark:hover:text-white"
+            aria-label={t("profileForm.cancel")}
           >
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
-              <Field label={t("profileForm.nameLabel")}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="sm:col-span-2">
+              <Field label={t("profileForm.nameLabel")} htmlFor={`${fieldPrefix}-name`}>
                 <input
+                  id={`${fieldPrefix}-name`}
                   value={form.name}
                   onChange={(e) => set("name", e.target.value)}
                   placeholder={t("profileForm.namePlaceholder")}
+                  required
                   className={INPUT_CLS}
                 />
               </Field>
@@ -179,41 +215,50 @@ export function ProfileFormModal(props: Props) {
             </Field>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
-              <Field label={t("profileForm.serverLabel")}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="sm:col-span-2">
+              <Field label={t("profileForm.serverLabel")} htmlFor={`${fieldPrefix}-server`}>
                 <input
+                  id={`${fieldPrefix}-server`}
                   value={form.server}
                   onChange={(e) => set("server", e.target.value)}
                   placeholder={t("profileForm.serverPlaceholder")}
+                  required
                   className={INPUT_CLS}
                 />
               </Field>
             </div>
-            <Field label={t("profileForm.portLabel")}>
+            <Field label={t("profileForm.portLabel")} htmlFor={`${fieldPrefix}-port`}>
               <input
+                id={`${fieldPrefix}-port`}
                 type="number"
                 value={form.port}
+                min={1}
+                max={65535}
                 onChange={(e) => set("port", Number(e.target.value))}
                 className={INPUT_CLS}
               />
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={t("profileForm.usernameLabel")}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label={t("profileForm.usernameLabel")} htmlFor={`${fieldPrefix}-username`}>
               <input
+                id={`${fieldPrefix}-username`}
                 value={form.username}
                 onChange={(e) => set("username", e.target.value)}
+                required
                 className={INPUT_CLS}
               />
             </Field>
-            <Field label={t("profileForm.passwordLabel")}>
+            <Field label={t("profileForm.passwordLabel")} htmlFor={`${fieldPrefix}-password`}>
               <div className="relative">
                 <input
+                  id={`${fieldPrefix}-password`}
                   type={showPassword ? "text" : "password"}
                   value={form.password}
                   onChange={(e) => set("password", e.target.value)}
+                  required={isNew}
                   className={`${INPUT_CLS} pr-9`}
                 />
                 <button
@@ -221,7 +266,6 @@ export function ProfileFormModal(props: Props) {
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-700 dark:hover:text-white"
                   aria-label={showPassword ? t("profileForm.passwordHide") : t("profileForm.passwordShow")}
-                  tabIndex={-1}
                 >
                   {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
@@ -243,7 +287,7 @@ export function ProfileFormModal(props: Props) {
             <p className="text-xs font-medium text-gray-700 dark:text-gray-400 mb-2">
               {t("profileForm.security")}
             </p>
-            <div className="flex gap-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-6">
               <CheckboxField
                 label={t("profileForm.encryptLabel")}
                 checked={form.encrypt}
@@ -269,14 +313,18 @@ export function ProfileFormModal(props: Props) {
             </code>
           </Field>
 
-          {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-red-500 dark:text-red-400">
+              {error}
+            </p>
+          )}
 
-          <div className="flex items-center justify-between pt-2 gap-3">
-            <div className="flex items-center gap-2 min-w-0">
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
               <button
                 type="button"
                 onClick={handleTest}
-                disabled={testState.kind === "running"}
+                disabled={testState.kind === "running" || saving}
                 className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
               >
                 <Zap
@@ -287,19 +335,22 @@ export function ProfileFormModal(props: Props) {
                   ? t("profileForm.testInFormBusy")
                   : t("profileForm.testInForm")}
               </button>
-              {testState.kind === "success" && (
-                <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 truncate">
-                  <CheckCircle2 size={12} /> {t("profileForm.testInFormSuccess")}
-                </span>
-              )}
-              {testState.kind === "error" && (
-                <span
-                  className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400 truncate"
-                  title={testState.message}
-                >
-                  <XCircle size={12} /> {testState.message}
-                </span>
-              )}
+              <div aria-live="polite" className="min-w-0">
+                {testState.kind === "success" && (
+                  <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                    <CheckCircle2 size={12} className="flex-shrink-0" />
+                    {t("profileForm.testInFormSuccess")}
+                  </span>
+                )}
+                {testState.kind === "error" && (
+                  <span
+                    className="flex items-start gap-1 text-xs text-red-600 dark:text-red-400 break-words"
+                    title={testState.message}
+                  >
+                    <XCircle size={12} className="mt-0.5 flex-shrink-0" /> {testState.message}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 flex-shrink-0">
@@ -312,7 +363,7 @@ export function ProfileFormModal(props: Props) {
               </button>
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || testState.kind === "running"}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
               >
                 {saving
@@ -333,10 +384,20 @@ export function ProfileFormModal(props: Props) {
 const INPUT_CLS =
   "w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors";
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium text-gray-700 dark:text-gray-400">{label}</label>
+      <label htmlFor={htmlFor} className="text-xs font-medium text-gray-700 dark:text-gray-400">
+        {label}
+      </label>
       {children}
     </div>
   );
