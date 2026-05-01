@@ -29,6 +29,7 @@ const en: Translations = {
   "profiles.exportDialogTitle": "Export Profiles",
   "profiles.importSuccess": "Imported {count} profile(s). Passwords were not included; re-enter them before use.",
   "profiles.empty": "No profiles yet. Create one to get started.",
+  "profiles.loading": "Loading profiles…",
 
   // Profile card
   "profileCard.connected": "Connected",
@@ -58,6 +59,7 @@ const en: Translations = {
   "profileForm.encryptLabel": "Encrypt (TLS)",
   "profileForm.trustCertLabel": "Trust Certificate",
   "profileForm.validationError": "Name, server, and username are required.",
+  "profileForm.portInvalid": "Port must be between 1 and 65535.",
   "profileForm.passwordRequired": "Password is required for new profiles.",
   "profileForm.cancel": "Cancel",
   "profileForm.save": "Save",
@@ -249,6 +251,8 @@ const en: Translations = {
 
   "profiles.search": "Search profiles",
   "profiles.searchHint": "Search profiles…  ( / )",
+  "profiles.clearSearch": "Clear search",
+  "profiles.clearFilters": "Clear filters",
   "profiles.filterEnv": "Environment",
   "profiles.filterAll": "All environments",
   "profiles.sort": "Sort",
@@ -471,6 +475,7 @@ const esAR: Translations = {
   "profiles.exportDialogTitle": "Exportar Perfiles",
   "profiles.importSuccess": "Se importaron {count} perfil(es). Las contraseñas no fueron incluidas; volvé a ingresarlas antes de usar los perfiles.",
   "profiles.empty": "Sin perfiles aún. Creá uno para comenzar.",
+  "profiles.loading": "Cargando perfiles…",
 
   // Profile card
   "profileCard.connected": "Conectado",
@@ -500,6 +505,7 @@ const esAR: Translations = {
   "profileForm.encryptLabel": "Encriptar (TLS)",
   "profileForm.trustCertLabel": "Confiar en Certificado",
   "profileForm.validationError": "El nombre, servidor y usuario son obligatorios.",
+  "profileForm.portInvalid": "El puerto debe estar entre 1 y 65535.",
   "profileForm.passwordRequired": "La contraseña es obligatoria para perfiles nuevos.",
   "profileForm.cancel": "Cancelar",
   "profileForm.save": "Guardar",
@@ -691,6 +697,8 @@ const esAR: Translations = {
 
   "profiles.search": "Buscar perfiles",
   "profiles.searchHint": "Buscar perfiles…  ( / )",
+  "profiles.clearSearch": "Limpiar búsqueda",
+  "profiles.clearFilters": "Limpiar filtros",
   "profiles.filterEnv": "Entorno",
   "profiles.filterAll": "Todos los entornos",
   "profiles.sort": "Ordenar",

@@ -1,7 +1,6 @@
 import { AlertTriangle, CheckCircle2, Pin, XCircle, Zap } from "lucide-react";
 import { useState } from "react";
 import { useT } from "../../i18n";
-import { useProfileStore } from "../../store/profileStore";
 import type { RunRecord, ServerProfile } from "../../types";
 import { envVisuals, relativeTime } from "../../utils/profileUi";
 import { ConfirmDialog } from "../shared/ConfirmDialog";
@@ -15,11 +14,18 @@ interface Props {
   onEdit: () => void;
   onDuplicate: () => void;
   onExport: () => void;
+  onDelete: () => void;
 }
 
-export function ProfileCard({ profile, lastRun, onEdit, onDuplicate, onExport }: Props) {
+export function ProfileCard({
+  profile,
+  lastRun,
+  onEdit,
+  onDuplicate,
+  onExport,
+  onDelete,
+}: Props) {
   const t = useT();
-  const { remove } = useProfileStore();
   const {
     localStatus,
     lastTest,
@@ -117,8 +123,8 @@ export function ProfileCard({ profile, lastRun, onEdit, onDuplicate, onExport }:
             cancelLabel={t("confirm.cancel")}
             variant="danger"
             onConfirm={() => {
-              remove(profile.id);
               setShowDeleteConfirm(false);
+              onDelete();
             }}
             onCancel={() => setShowDeleteConfirm(false)}
           />

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 export type ProfilesViewMode = "grid" | "list";
+export type ProfilesSortMode = "lastUsed" | "name" | "env" | "verified" | "manual";
 
 const RECENT_LIMIT = 5;
 
@@ -11,6 +12,7 @@ interface ProfilesViewState {
   manualOrder: string[];
   viewMode: ProfilesViewMode;
   groupByEnv: boolean;
+  sortMode: ProfilesSortMode;
   togglePinned: (id: string) => void;
   isPinned: (id: string) => boolean;
   pushRecent: (id: string) => void;
@@ -18,6 +20,7 @@ interface ProfilesViewState {
   forgetProfile: (id: string) => void;
   setViewMode: (m: ProfilesViewMode) => void;
   setGroupByEnv: (v: boolean) => void;
+  setSortMode: (m: ProfilesSortMode) => void;
 }
 
 export const useProfilesViewStore = create<ProfilesViewState>()(
@@ -28,6 +31,7 @@ export const useProfilesViewStore = create<ProfilesViewState>()(
       manualOrder: [],
       viewMode: "grid",
       groupByEnv: false,
+      sortMode: "lastUsed",
 
       togglePinned: (id) =>
         set((state) => ({
@@ -55,6 +59,7 @@ export const useProfilesViewStore = create<ProfilesViewState>()(
 
       setViewMode: (m) => set({ viewMode: m }),
       setGroupByEnv: (v) => set({ groupByEnv: v }),
+      setSortMode: (m) => set({ sortMode: m }),
     }),
     {
       name: "indexxorcist-profiles-view-v1",
@@ -65,6 +70,7 @@ export const useProfilesViewStore = create<ProfilesViewState>()(
         manualOrder: state.manualOrder,
         viewMode: state.viewMode,
         groupByEnv: state.groupByEnv,
+        sortMode: state.sortMode,
       }),
     }
   )

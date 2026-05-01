@@ -23,7 +23,7 @@ import { useT } from "../../i18n";
 import { useHistoryStore } from "../../store/historyStore";
 import { useProfileSettingsStore } from "../../store/profileSettingsStore";
 import { useProfileStore } from "../../store/profileStore";
-import { useProfilesViewStore } from "../../store/profilesViewStore";
+import { useProfilesViewStore, type ProfilesSortMode } from "../../store/profilesViewStore";
 import {
   buildProfileTransferBundle,
   parseProfileTransferBundle,
@@ -41,11 +41,10 @@ import { useUiStore } from "../../store/uiStore";
 import type { Environment, RunRecord, ServerProfile } from "../../types";
 
 type EnvFilter = "all" | Environment;
-type SortMode = "lastUsed" | "name" | "env" | "verified" | "manual";
-
 export function ProfileList() {
   const t = useT();
   const profiles = useProfileStore((s) => s.profiles);
+  const loading = useProfileStore((s) => s.loading);
   const importProfiles = useProfileStore((s) => s.importProfiles);
   const getSettings = useProfileSettingsStore((s) => s.getSettings);
   const lastTestByProfile = useProfileSettingsStore((s) => s.lastTestByProfile);
@@ -60,11 +59,13 @@ export function ProfileList() {
   const manualOrder = useProfilesViewStore((s) => s.manualOrder);
   const viewMode = useProfilesViewStore((s) => s.viewMode);
   const groupByEnv = useProfilesViewStore((s) => s.groupByEnv);
+  const sortMode = useProfilesViewStore((s) => s.sortMode);
   const setViewMode = useProfilesViewStore((s) => s.setViewMode);
   const setGroupByEnv = useProfilesViewStore((s) => s.setGroupByEnv);
+  const setSortMode = useProfilesViewStore((s) => s.setSortMode);
   const pushRecent = useProfilesViewStore((s) => s.pushRecent);
   const setManualOrder = useProfilesViewStore((s) => s.setManualOrder);
-  const remove = useProfileStore((s) => s.remove);
+  const removeProfile = useProfileStore((s) => s.remove);
 
   const openProfileTab = useUiStore((s) => s.openProfileTab);
   const setActiveProfileId = useUiStore((s) => s.setActiveProfileId);
@@ -87,7 +88,6 @@ export function ProfileList() {
   );
   const [search, setSearch] = useState("");
   const [envFilter, setEnvFilter] = useState<EnvFilter>("all");
-  const [sortMode, setSortMode] = useState<SortMode>("lastUsed");
   const [collapsedEnvs, setCollapsedEnvs] = useState<Set<Environment>>(() => new Set());
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -233,11 +233,13 @@ export function ProfileList() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      const inField =
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target?.isContentEditable;
-      if (inField) return;
+      if (document.querySelector("[aria-modal='true']")) return;
+      const inInteractiveElement = Boolean(
+        target?.closest(
+          "a[href], button, input, textarea, select, [role='button'], [role='combobox'], [role='menuitem'], [contenteditable='true']"
+        )
+      );
+      if (inInteractiveElement) return;
       if (e.key === "/") {
         e.preventDefault();
         searchInputRef.current?.focus();
@@ -250,6 +252,26 @@ export function ProfileList() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  useEffect(() => {
+    const validIds = new Set(profiles.map((profile) => profile.id));
+    setSelectedIds((prev) => {
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (validIds.has(id)) {
+          next.add(id);
+        } else {
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+
+    if (profiles.length === 0) {
+      setBulkMode(false);
+    }
+  }, [profiles]);
 
   const closeModal = () => setModalState(null);
 
@@ -449,6 +471,34 @@ export function ProfileList() {
     }
   };
 
+  const deleteProfileAndCleanup = async (id: string, reloadHistory = true) => {
+    let removeError: unknown;
+    try {
+      await removeProfile(id);
+    } catch (error) {
+      removeError = error;
+    }
+
+    const deleted = !useProfileStore.getState().profiles.some((p) => p.id === id);
+    if (deleted) {
+      await clearHistory(id);
+      if (reloadHistory) {
+        await loadHistory();
+      }
+    }
+
+    if (removeError) throw removeError;
+  };
+
+  const handleDeleteProfile = async (profile: ServerProfile) => {
+    setNotice(null);
+    try {
+      await deleteProfileAndCleanup(profile.id);
+    } catch (error) {
+      setNotice({ tone: "error", message: String(error) });
+    }
+  };
+
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
     const ids = Array.from(selectedIds);
@@ -456,16 +506,7 @@ export function ProfileList() {
     setBulkDeleteOpen(false);
     try {
       for (const id of ids) {
-        let removeError: unknown;
-        try {
-          await remove(id);
-        } catch (error) {
-          removeError = error;
-        }
-        if (!useProfileStore.getState().profiles.some((p) => p.id === id)) {
-          await clearHistory(id);
-        }
-        if (removeError) throw removeError;
+        await deleteProfileAndCleanup(id, false);
       }
       await loadHistory();
       exitBulkMode();
@@ -484,6 +525,7 @@ export function ProfileList() {
       },
       onDuplicate: () => handleDuplicate(p),
       onExport: () => void handleExport(p),
+      onDelete: () => void handleDeleteProfile(p),
     };
     const inner =
       viewMode === "list" ? <ProfileRow {...common} /> : <ProfileCard {...common} />;
@@ -568,13 +610,19 @@ export function ProfileList() {
     { value: "other", label: t("env.other") },
   ];
 
-  const sortOptions: { value: SortMode; label: string }[] = [
+  const sortOptions: { value: ProfilesSortMode; label: string }[] = [
     { value: "lastUsed", label: t("profiles.sortLastUsed") },
     { value: "name", label: t("profiles.sortName") },
     { value: "env", label: t("profiles.sortEnv") },
     { value: "verified", label: t("profiles.sortVerified") },
     { value: "manual", label: t("profiles.sortManual") },
   ];
+
+  const hasActiveFilters = search.trim() !== "" || envFilter !== "all";
+  const clearFilters = () => {
+    setSearch("");
+    setEnvFilter("all");
+  };
 
   return (
     <div className="p-4 lg:p-6">
@@ -638,8 +686,18 @@ export function ProfileList() {
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={t("profiles.searchHint")}
                 aria-label={t("profiles.search")}
-                className="w-full pl-9 pr-3 py-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                className="w-full pl-9 pr-9 py-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
               />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-700 dark:hover:text-white"
+                  aria-label={t("profiles.clearSearch")}
+                >
+                  <X size={13} />
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <Select<EnvFilter>
@@ -648,7 +706,7 @@ export function ProfileList() {
                 options={envFilterOptions}
                 aria-label={t("profiles.filterEnv")}
               />
-              <Select<SortMode>
+              <Select<ProfilesSortMode>
                 value={sortMode}
                 onChange={setSortMode}
                 options={sortOptions}
@@ -804,7 +862,9 @@ export function ProfileList() {
           />
         )}
 
-        {profiles.length === 0 ? (
+        {loading && profiles.length === 0 ? (
+          <LoadingState t={t} />
+        ) : profiles.length === 0 ? (
           <EmptyState
             t={t}
             onCreate={() => {
@@ -815,9 +875,7 @@ export function ProfileList() {
             importBusy={busyAction === "import"}
           />
         ) : filteredProfiles.length === 0 ? (
-          <div className="text-center py-16 text-gray-600 dark:text-gray-500">
-            <p className="text-sm">{t("profiles.noMatches")}</p>
-          </div>
+          <NoMatches t={t} hasActiveFilters={hasActiveFilters} onClearFilters={clearFilters} />
         ) : (
           <div className="space-y-6">
             {pinnedProfiles.length > 0 && (
@@ -991,6 +1049,42 @@ function EmptyState({
       <p className="text-[11px] text-gray-500 dark:text-gray-500 mt-4">
         {t("profiles.shortcutHint")}
       </p>
+    </div>
+  );
+}
+
+function LoadingState({ t }: { t: ReturnType<typeof useT> }) {
+  return (
+    <div
+      role="status"
+      className="flex items-center justify-center py-16 text-sm text-gray-600 dark:text-gray-500"
+    >
+      <span className="animate-pulse">{t("profiles.loading")}</span>
+    </div>
+  );
+}
+
+function NoMatches({
+  t,
+  hasActiveFilters,
+  onClearFilters,
+}: {
+  t: ReturnType<typeof useT>;
+  hasActiveFilters: boolean;
+  onClearFilters: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-16 text-center text-gray-600 dark:text-gray-500">
+      <p className="text-sm">{t("profiles.noMatches")}</p>
+      {hasActiveFilters && (
+        <button
+          type="button"
+          onClick={onClearFilters}
+          className="px-3 py-1.5 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+        >
+          {t("profiles.clearFilters")}
+        </button>
+      )}
     </div>
   );
 }
