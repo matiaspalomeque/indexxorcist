@@ -15,11 +15,17 @@ import { useUiStore } from "../store/uiStore";
 import { useHistoryStore } from "../store/historyStore";
 import { notifyMaintenanceFinished, notifyMaintenanceError } from "../utils/notifications";
 
+function isTauriRuntime(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
 // Mounted once at App root — persists across view navigation.
 // Store methods are read via getState() inside the effect so the dep array is
 // truly empty and listeners are never torn down and re-registered mid-run.
 export function useMaintenanceEvents() {
   useEffect(() => {
+    if (!isTauriRuntime()) return;
+
     let disposed = false;
     let unlisteners: Array<() => void> = [];
 

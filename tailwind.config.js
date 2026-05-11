@@ -8,8 +8,37 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Geist Variable", "system-ui", "sans-serif"],
-        mono: ["Geist Mono Variable", "ui-monospace", "monospace"],
+        sans: [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          '"Segoe UI Variable"',
+          '"Segoe UI"',
+          "system-ui",
+          "Roboto",
+          "Ubuntu",
+          "Cantarell",
+          '"Noto Sans"',
+          '"Helvetica Neue"',
+          "Arial",
+          "sans-serif",
+          '"Apple Color Emoji"',
+          '"Segoe UI Emoji"',
+        ],
+        mono: [
+          "ui-monospace",
+          "SFMono-Regular",
+          '"SF Mono"',
+          "Menlo",
+          "Monaco",
+          '"Cascadia Mono"',
+          '"Segoe UI Mono"',
+          "Consolas",
+          '"Liberation Mono"',
+          '"Ubuntu Mono"',
+          '"Roboto Mono"',
+          '"Noto Mono"',
+          "monospace",
+        ],
       },
       fontSize: {
         "2xs": ["0.6875rem", { lineHeight: "1rem" }], // 11px

@@ -21,6 +21,10 @@ function runStateColor(runState: string | undefined): string {
   return "text-gray-500";
 }
 
+function isTauriRuntime(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
 export function Sidebar() {
   const t = useT();
   const profiles = useProfileStore((s) => s.profiles);
@@ -45,6 +49,8 @@ export function Sidebar() {
   const [showAbout, setShowAbout] = useState(false);
 
   useEffect(() => {
+    if (!isTauriRuntime()) return;
+
     if (profiles.length === 0) {
       void loadProfiles();
     }

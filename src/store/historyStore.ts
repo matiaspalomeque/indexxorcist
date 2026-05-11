@@ -33,6 +33,10 @@ const endFetch = (s: HistoryState): Partial<HistoryState> => {
   return { inFlight, loading: inFlight > 0 };
 };
 
+function isTauriRuntime(): boolean {
+  return import.meta.env.MODE === "test" || (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window);
+}
+
 // Records come back ordered by id DESC, so rs[0] holds the newest run.
 // Empty response ⇒ -Infinity so any non-empty committed state beats it.
 const newestRunId = (rs: RunRecord[]): number => rs[0]?.id ?? -Infinity;
@@ -59,6 +63,11 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   inFlight: 0,
 
   loadHistory: async (profileId, limit = 100) => {
+    if (!isTauriRuntime()) {
+      set({ records: [], loading: false, error: null, loadedLimit: 0, inFlight: 0 });
+      return;
+    }
+
     const { loadedLimit, records } = get();
     if (profileId === undefined && records.length > 0 && limit <= loadedLimit) {
       return;
@@ -87,6 +96,11 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   },
 
   refreshHistory: async () => {
+    if (!isTauriRuntime()) {
+      set({ records: [], loading: false, error: null, loadedLimit: 0, inFlight: 0 });
+      return;
+    }
+
     const limit = Math.max(get().loadedLimit, 100);
     const gen = get().clearGen;
     set(beginFetch);
@@ -106,6 +120,18 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   },
 
   clearHistory: async (profileId) => {
+    if (!isTauriRuntime()) {
+      set((s) => ({
+        records: [],
+        loadedLimit: 0,
+        loading: false,
+        error: null,
+        clearGen: s.clearGen + 1,
+        inFlight: 0,
+      }));
+      return;
+    }
+
     try {
       await api.clearRunHistory(profileId);
       set((s) => ({
