@@ -1,4 +1,15 @@
-import { AlertCircle, Clock, Loader2, RefreshCw, Search, X } from "lucide-react";
+import {
+  AlertCircle,
+  CheckSquare2,
+  Clock,
+  Database,
+  Loader2,
+  RefreshCw,
+  Search,
+  Square,
+  X,
+  Zap,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import * as api from "../../api/tauri";
 import { useT } from "../../i18n";
@@ -12,8 +23,7 @@ import { DEFAULT_OPTIONS } from "../../types";
 import { computeDbAdvisorInfo, estimateRunDuration } from "../../utils/advisorUtils";
 import { formatDuration } from "../../utils/format";
 import { prepareNotificationPermission } from "../../utils/notifications";
-import { AdvisorBanner, DbAgeBadge } from "./AdvisorBanner";
-import { OptionsPanel, OptionsSummaryLine } from "./OptionsPanel";
+import { OptionsInspector, OptionsPanel, OptionsSummaryLine } from "./OptionsPanel";
 
 export function DatabaseSelector() {
   const t = useT();
@@ -49,6 +59,7 @@ export function DatabaseSelector() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
   const [filterQuery, setFilterQuery] = useState("");
+  const [showSelectedOnly, setShowSelectedOnly] = useState(false);
 
   const historyRecords = useHistoryStore((s) => s.records);
   const loadHistory = useHistoryStore((s) => s.loadHistory);
@@ -65,6 +76,11 @@ export function DatabaseSelector() {
   const dbInfoMap = useMemo(() => {
     return new Map(databases.map((db) => [db, computeDbAdvisorInfo(db, profileRecords)]));
   }, [databases, profileRecords]);
+
+  const urgentDatabases = useMemo(
+    () => databases.filter((db) => dbInfoMap.get(db)?.level === "high"),
+    [databases, dbInfoMap]
+  );
 
   const estimatedSecs = useMemo(
     () =>
@@ -84,12 +100,15 @@ export function DatabaseSelector() {
     setSelectedForProfile(activeProfileId, Array.from(next));
   };
 
-  const filteredDatabases =
-    filterQuery.trim() === ""
-      ? databases
-      : databases.filter((db) =>
-          db.toLowerCase().includes(filterQuery.toLowerCase())
-        );
+  const filteredDatabases = useMemo(() => {
+    const query = filterQuery.trim().toLowerCase();
+    const selectedLookup = new Set(selectedList);
+    return databases.filter((db) => {
+      if (showSelectedOnly && !selectedLookup.has(db)) return false;
+      if (query && !db.toLowerCase().includes(query)) return false;
+      return true;
+    });
+  }, [databases, filterQuery, selectedList, showSelectedOnly]);
 
   const canStart =
     databases.length > 0 &&
@@ -113,7 +132,7 @@ export function DatabaseSelector() {
 
   const toggleAll = () => {
     if (!activeProfileId) return;
-    const targetList = filterQuery.trim() !== "" ? filteredDatabases : databases;
+    const targetList = filterQuery.trim() !== "" || showSelectedOnly ? filteredDatabases : databases;
     if (targetList.length === 0) return;
     const allTargetSelected = targetList.every((db) => selected.has(db));
     if (allTargetSelected) {
@@ -125,6 +144,15 @@ export function DatabaseSelector() {
       targetList.forEach((db) => next.add(db));
       setSelectedForProfile(activeProfileId, Array.from(next));
     }
+  };
+
+  const invertVisibleSelection = () => {
+    if (!activeProfileId || filteredDatabases.length === 0) return;
+    const next = new Set(selected);
+    filteredDatabases.forEach((db) => {
+      next.has(db) ? next.delete(db) : next.add(db);
+    });
+    setSelectedForProfile(activeProfileId, Array.from(next));
   };
 
   const toggle = (db: string) => {
@@ -160,7 +188,7 @@ export function DatabaseSelector() {
     );
   }
 
-  const targetForToggle = filterQuery.trim() !== "" ? filteredDatabases : databases;
+  const targetForToggle = filterQuery.trim() !== "" || showSelectedOnly ? filteredDatabases : databases;
   const allTargetSelected =
     targetForToggle.length > 0 && targetForToggle.every((db) => selected.has(db));
 
@@ -177,188 +205,255 @@ export function DatabaseSelector() {
     : t("databases.btnStart", { count: selected.size });
 
   return (
-    <div className="p-4 lg:p-6 pb-28">
-      <div className="mx-auto max-w-[1800px]">
-        {/* Advisor banner — full-width above the grid */}
-        {activeProfileId && (
-          <AdvisorBanner
-            databases={databases}
-            dbInfoMap={dbInfoMap}
-            hasHistory={profileRecords.length > 0}
-            onSelectUrgent={handleSelectUrgent}
-          />
-        )}
-      </div>
-      <div className="mx-auto max-w-[1800px] grid grid-cols-1 2xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)] gap-4 lg:gap-6 items-start">
-        <div className="min-h-[520px] bg-gray-100/60 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800 rounded-xl p-4 lg:p-5 flex flex-col">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between mb-4">
-            <div className="min-w-0">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t("databases.title")}</h2>
-              <p className="text-sm text-gray-700 dark:text-gray-400 mt-0.5 truncate">
+    <div className="min-h-full p-4 lg:p-5 xl:h-full xl:overflow-hidden">
+      <div className="mx-auto flex min-h-full w-full max-w-[1800px] flex-col xl:h-full">
+        <div className="grid min-h-0 flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950 xl:grid-cols-[minmax(0,2.4fr)_minmax(320px,0.9fr)]">
+          <section className="flex min-h-[520px] min-w-0 flex-col p-4 lg:p-5 xl:min-h-0">
+            <div className="mb-4 min-w-0">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {t("databases.title")}
+              </h2>
+              <p className="mt-0.5 truncate text-sm text-gray-600 dark:text-gray-400">
                 {activeProfile.name} — {activeProfile.server}
               </p>
             </div>
-            <button
-              onClick={loadDatabases}
-              disabled={loading}
-              className="self-start lg:self-auto inline-flex items-center gap-2 px-3 py-2 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
-            >
-              {loading ? (
-                <Loader2 size={15} className="animate-spin" />
-              ) : (
-                <RefreshCw size={15} />
-              )}
-              {loading ? t("databases.refreshing") : t("databases.refresh")}
-            </button>
-          </div>
 
-          {error && (
-            <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg mb-4 text-sm text-red-700 dark:text-red-300">
-              <AlertCircle size={15} className="flex-shrink-0 mt-0.5" />
-              <span className="break-words">{error}</span>
-            </div>
-          )}
+            {error && (
+              <div className="mb-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
+                <AlertCircle size={15} className="mt-0.5 flex-shrink-0" />
+                <span className="break-words">{error}</span>
+              </div>
+            )}
 
-          {databases.length === 0 && !error && (
-            <div className="flex-1 rounded-lg border border-dashed border-gray-300 dark:border-gray-800 bg-gray-100/40 dark:bg-gray-950/40 flex flex-col items-center justify-center text-center px-4">
-              {loading ? (
-                <>
-                  <Loader2 size={18} className="animate-spin text-gray-600 dark:text-gray-500 mb-2" />
-                  <p className="text-sm text-gray-700 dark:text-gray-400">{t("databases.loading")}</p>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-gray-700 dark:text-gray-400">{t("databases.noDataEmpty")}</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-500 mt-1">
-                    {t("databases.noDataHint")}
-                  </p>
-                </>
-              )}
-            </div>
-          )}
-
-          {databases.length > 0 && (
-            <div className="flex-1 min-h-0 flex flex-col">
-              {/* Filter input */}
-              <div className="relative mb-3">
+            <div className="mb-3 grid gap-2 rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-800 dark:bg-gray-900/60 lg:grid-cols-[minmax(180px,1fr)_auto] lg:items-center">
+              <div className="relative min-w-0">
                 <Search
                   size={14}
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-500 pointer-events-none"
+                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500"
                 />
                 <input
                   type="text"
                   value={filterQuery}
-                  onChange={(e) => setFilterQuery(e.target.value)}
+                  onChange={(event) => setFilterQuery(event.target.value)}
                   placeholder={t("databases.filterPlaceholder")}
-                  className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg pl-8 pr-8 py-1.5 text-sm text-gray-900 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+                  className="w-full rounded-md border border-gray-300 bg-white py-2 pl-8 pr-8 text-sm text-gray-900 placeholder-gray-400 transition-colors focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:placeholder-gray-500"
                 />
                 {filterQuery && (
                   <button
+                    type="button"
                     onClick={() => setFilterQuery("")}
                     aria-label={t("databases.filterClear")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
                   >
                     <X size={14} />
                   </button>
                 )}
               </div>
 
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
                 <button
-                  onClick={toggleAll}
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 transition-colors"
+                  type="button"
+                  onClick={() => setShowSelectedOnly((value) => !value)}
+                  aria-pressed={showSelectedOnly}
+                  disabled={databases.length === 0}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                    showSelectedOnly
+                      ? "bg-blue-50 text-blue-700 dark:bg-blue-600/20 dark:text-blue-300"
+                      : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                  }`}
                 >
-                  {filterQuery.trim() !== ""
-                    ? allTargetSelected
-                      ? t("databases.deselectFiltered", { count: filteredDatabases.length })
-                      : t("databases.selectFiltered", { count: filteredDatabases.length })
-                    : allTargetSelected
-                      ? t("databases.deselectAll")
-                      : t("databases.selectAll")}
+                  {showSelectedOnly ? <CheckSquare2 size={14} /> : <Square size={14} />}
+                  {showSelectedOnly ? t("databases.showAllDatabases") : t("databases.showSelectedOnly")}
                 </button>
-                <span className="text-xs text-gray-600 dark:text-gray-500">
+                <button
+                  type="button"
+                  onClick={invertVisibleSelection}
+                  disabled={filteredDatabases.length === 0}
+                  className="rounded-md px-2 py-1.5 font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-400 dark:hover:bg-gray-800"
+                >
+                  {t("databases.invertVisible")}
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleAll}
+                  disabled={targetForToggle.length === 0}
+                  className="rounded-md px-2 py-1.5 font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-blue-400 dark:hover:bg-blue-950/40"
+                >
+                  {allTargetSelected ? t("databases.deselectAll") : t("databases.selectAll")}
+                </button>
+                {urgentDatabases.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleSelectUrgent(urgentDatabases)}
+                    className="hidden items-center gap-1 rounded-md px-2 py-1.5 font-medium text-violet-600 transition-colors hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-950/30 2xl:inline-flex"
+                  >
+                    <Zap size={13} />
+                    {t("advisor.selectUrgent", { count: urgentDatabases.length })}
+                  </button>
+                )}
+                <span className="border-l border-gray-200 pl-2 tabular-nums text-gray-500 dark:border-gray-700">
                   {t("databases.selectedCount", {
                     selected: selected.size,
                     total: databases.length,
                   })}
                 </span>
-              </div>
-
-              <div className="space-y-1 overflow-y-auto max-h-[340px] pr-1">
-                {filteredDatabases.length === 0 ? (
-                  <p className="text-center py-6 text-sm text-gray-600 dark:text-gray-500">
-                    {t("databases.noDataEmpty")}
-                  </p>
-                ) : (
-                  filteredDatabases.map((db) => {
-                    const info = dbInfoMap.get(db);
-                    return (
-                      <label
-                        key={db}
-                        className="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selected.has(db)}
-                          onChange={() => toggle(db)}
-                          className="rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-blue-500 focus:ring-blue-500"
-                        />
-                        <span className="text-sm text-gray-800 dark:text-gray-200 font-mono truncate flex-1">
-                          {db}
-                        </span>
-                        {info && profileRecords.length > 0 && (
-                          <DbAgeBadge info={info} />
-                        )}
-                      </label>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="min-h-0 2xl:sticky 2xl:top-4">
-          <details className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 lg:px-5">
-            <OptionsSummaryLine settings={settings} />
-            <div className="pb-4 lg:pb-5">
-              <OptionsPanel
-                settings={settings}
-                onChange={(key, value) => {
-                  if (activeProfileId) updateSetting(activeProfileId, key, value);
-                }}
-              />
-            </div>
-          </details>
-        </div>
-      </div>
-
-      <div className="sticky bottom-0 z-30 mt-4 -mx-4 lg:-mx-6 px-4 lg:px-6 pb-2">
-        <div className="mx-auto max-w-[1800px]">
-          <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur border border-gray-200 dark:border-gray-800 rounded-xl px-3 py-3 lg:px-4 lg:py-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between shadow-2xl">
-            <div className="min-w-0">
-              <p className="text-xs text-gray-700 dark:text-gray-400 truncate">
-                {activeProfile.name} · {activeProfile.server}
-              </p>
-              <div className="flex items-center gap-2">
-                <p className="text-xs text-gray-600 dark:text-gray-500">
-                  {t("databases.statusSelected", {
-                    selected: selected.size,
-                    total: databases.length,
-                  })}
-                </p>
-                {estimatedSecs !== null && selected.size > 0 && (
-                  <span className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                    <Clock size={11} className="flex-shrink-0" />
-                    ~{formatDuration(estimatedSecs)}
+                <button
+                  type="button"
+                  onClick={loadDatabases}
+                  disabled={loading}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-gray-200 px-2.5 py-1.5 font-medium text-gray-700 transition-colors hover:bg-gray-300 disabled:opacity-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                  <span className="hidden 2xl:inline">
+                    {loading ? t("databases.refreshing") : t("databases.refresh")}
                   </span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 dark:border-gray-800">
+              <div className="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-500 dark:bg-gray-900/70 dark:text-gray-500 sm:grid-cols-[minmax(0,1fr)_9rem]">
+                <div className="flex min-w-0 items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={allTargetSelected}
+                    onChange={toggleAll}
+                    disabled={targetForToggle.length === 0}
+                    aria-label={allTargetSelected ? t("databases.deselectAll") : t("databases.selectAll")}
+                    className="rounded border-gray-300 bg-white text-blue-500 focus:ring-blue-500 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-800"
+                  />
+                  <span>{t("databases.databaseName")}</span>
+                </div>
+                <span className="text-right sm:text-left">{t("databases.lastMaintenance")}</span>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {databases.length === 0 && !error ? (
+                  <div className="flex h-full min-h-[300px] flex-col items-center justify-center px-6 text-center">
+                    {loading ? (
+                      <>
+                        <Loader2 size={24} className="mb-3 animate-spin text-gray-500" />
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{t("databases.loading")}</p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="mb-3 rounded-2xl bg-gray-100 p-3 text-gray-500 dark:bg-gray-900 dark:text-gray-500">
+                          <Database size={28} />
+                        </div>
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                          {t("databases.noDataEmpty")}
+                        </p>
+                        <p className="mt-1 max-w-md text-xs leading-5 text-gray-500">
+                          {t("databases.noDataHint")}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={loadDatabases}
+                          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500"
+                        >
+                          <RefreshCw size={15} />
+                          {t("databases.refresh")}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ) : filteredDatabases.length === 0 ? (
+                  <div className="flex h-full min-h-[240px] items-center justify-center px-6 text-center text-sm text-gray-500">
+                    {t("databases.noMatches")}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-200 dark:divide-gray-800">
+                    {filteredDatabases.map((db) => {
+                      const info = dbInfoMap.get(db);
+                      const isSelected = selected.has(db);
+                      return (
+                        <label
+                          key={db}
+                          className={`grid cursor-pointer grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 px-3 py-3 transition-colors sm:grid-cols-[minmax(0,1fr)_9rem] ${
+                            isSelected
+                              ? "bg-blue-50/80 hover:bg-blue-100/80 dark:bg-blue-950/45 dark:hover:bg-blue-950/60"
+                              : "bg-white hover:bg-gray-50 dark:bg-gray-950 dark:hover:bg-gray-900/70"
+                          }`}
+                        >
+                          <span className="flex min-w-0 items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggle(db)}
+                              className="rounded border-gray-300 bg-white text-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+                            />
+                            <Database size={15} className="flex-shrink-0 text-gray-400 dark:text-gray-600" />
+                            <span className="min-w-0 truncate font-mono text-sm text-gray-800 dark:text-gray-200">
+                              {db}
+                            </span>
+                          </span>
+                          <span className="flex justify-end text-xs tabular-nums text-gray-500 sm:justify-start">
+                            {info?.daysSince == null
+                              ? t("databases.neverMaintained")
+                              : info.daysSince < 1
+                                ? t("advisor.today")
+                                : t("advisor.daysAgo", { days: Math.floor(info.daysSince) })}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             </div>
+          </section>
+
+          <aside className="hidden min-h-0 border-l border-gray-200 bg-gray-50/70 p-5 dark:border-gray-800 dark:bg-gray-900/45 xl:block">
+            <OptionsInspector
+              settings={settings}
+              onChange={(key, value) => {
+                if (activeProfileId) updateSetting(activeProfileId, key, value);
+              }}
+            />
+          </aside>
+
+          <div className="border-t border-gray-200 bg-gray-50 px-4 dark:border-gray-800 dark:bg-gray-900 xl:hidden">
+            <details>
+              <OptionsSummaryLine settings={settings} />
+              <div className="pb-4">
+                <OptionsPanel
+                  settings={settings}
+                  onChange={(key, value) => {
+                    if (activeProfileId) updateSetting(activeProfileId, key, value);
+                  }}
+                />
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div className="sticky bottom-0 z-30 mt-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-lg dark:border-gray-800 dark:bg-gray-900 xl:static">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium text-gray-700 dark:text-gray-300">
+                {activeProfile.name} — {activeProfile.server}
+              </p>
+              <p className="mt-0.5 text-xs text-gray-500">
+                {t("databases.statusSelected", {
+                  selected: selected.size,
+                  total: databases.length,
+                })}
+              </p>
+            </div>
+
+            {estimatedSecs !== null && selected.size > 0 && (
+              <div className="flex-shrink-0 border-gray-200 text-xs text-gray-500 sm:border-l sm:pl-4 dark:border-gray-700">
+                <p>{t("databases.estimatedDuration")}</p>
+                <p className="mt-0.5 inline-flex items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
+                  <Clock size={13} />~{formatDuration(estimatedSecs)}
+                </p>
+              </div>
+            )}
+
             <button
               onClick={startMaintenance}
               disabled={!canStart}
-              className="w-full lg:w-auto lg:min-w-[280px] py-2.5 px-4 bg-green-600 hover:bg-green-500 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 text-white font-medium text-sm rounded-lg transition-colors"
+              className="w-full rounded-lg bg-green-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-green-500 disabled:bg-gray-200 disabled:text-gray-400 sm:w-auto sm:min-w-[300px] dark:disabled:bg-gray-700 dark:disabled:text-gray-500"
             >
               {startButtonLabel}
             </button>

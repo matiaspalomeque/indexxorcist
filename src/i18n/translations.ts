@@ -17,6 +17,7 @@ const en: Translations = {
   "wizard.databases": "Databases",
   "wizard.run": "Run",
   "wizard.summary": "Summary",
+  "wizard.lockedHint": "Run in progress. Pause or stop before changing steps.",
 
   // Profiles list
   "profiles.title": "Server Profiles",
@@ -74,12 +75,20 @@ const en: Translations = {
   "databases.filterClear": "Clear filter",
   "databases.noDataEmpty": "No databases loaded yet.",
   "databases.noDataHint": "Use \"Refresh Databases\" to fetch all user databases from this server.",
+  "databases.noMatches": "No databases match the current filters.",
   "databases.loading": "Loading databases...",
   "databases.selectAll": "Select All",
   "databases.deselectAll": "Deselect All",
   "databases.selectFiltered": "Select filtered ({count})",
   "databases.deselectFiltered": "Deselect filtered ({count})",
+  "databases.showSelectedOnly": "Selected only",
+  "databases.showAllDatabases": "Show all",
+  "databases.invertVisible": "Invert visible",
   "databases.selectedCount": "{selected} / {total} selected",
+  "databases.visibleCount": "{visible} visible",
+  "databases.databaseName": "Database name",
+  "databases.lastMaintenance": "Last maintenance",
+  "databases.neverMaintained": "Never",
   "databases.noProfile": "No profile selected. Go to Profiles and click \"Connect & Select Databases\".",
 
   // Start button states
@@ -92,6 +101,7 @@ const en: Translations = {
 
   // Status bar
   "databases.statusSelected": "{selected} selected / {total} total databases",
+  "databases.estimatedDuration": "Estimated duration",
 
   // Options panel
   "options.title": "Profile Settings",
@@ -107,6 +117,19 @@ const en: Translations = {
   "options.maxAttempts": "Max attempts",
   "options.baseDelay": "Base delay (ms)",
   "options.maxDelay": "Max delay (ms)",
+  "options.runSettings": "Run settings",
+  "options.tabMaintenance": "Maintenance",
+  "options.tabConnection": "Connection",
+  "options.tabRetry": "Retry",
+  "options.reorganizeThresholdDesc": "Fragmentation level to reorganize",
+  "options.rebuildThresholdDesc": "Fragmentation level to rebuild",
+  "options.rebuildOnlineShort": "Online rebuild",
+  "options.freeProcCacheShort": "DBCC FREEPROCCACHE",
+  "options.maxParallelDatabasesDesc": "Maximum databases processed concurrently",
+  "options.otherSettings": "Other settings",
+  "options.otherSettingsSummary": "Connection {connection} · Request {request} · Retry {attempts}×",
+  "options.noLimit": "unlimited",
+  "options.edit": "Edit",
 
   // Maintenance dashboard
   "dashboard.title": "Maintenance Dashboard",
@@ -127,6 +150,16 @@ const en: Translations = {
   "dashboard.completedHint": "Databases already processed in this run.",
   "dashboard.failedWork": "Needs Attention",
   "dashboard.failedHint": "Databases that reported errors during this run.",
+  "dashboard.focusLabel": "View",
+  "dashboard.focusHint": "Show active, queued, failed, or completed databases.",
+  "dashboard.focusAll": "All",
+  "dashboard.focusActive": "Active",
+  "dashboard.focusQueued": "Queued",
+  "dashboard.focusFailed": "Needs attention",
+  "dashboard.focusCompleted": "Completed",
+  "dashboard.focusEmpty": "No databases in this view.",
+  "dashboard.failureNotice": "{count} database(s) need attention.",
+  "dashboard.reviewFailures": "Review failures",
   "dashboard.waitingForActiveDb": "Waiting for the first database to start...",
   "dashboard.discoveringIndexes": "Discovering fragmented indexes...",
   "dashboard.indexProgress": "{current} / {total} indexes processed",
@@ -463,6 +496,7 @@ const esAR: Translations = {
   "wizard.databases": "Bases de Datos",
   "wizard.run": "Ejecución",
   "wizard.summary": "Resumen",
+  "wizard.lockedHint": "Hay una ejecución activa. Pausá o detené antes de cambiar de paso.",
 
   // Profiles list
   "profiles.title": "Perfiles de Servidor",
@@ -520,12 +554,20 @@ const esAR: Translations = {
   "databases.filterClear": "Limpiar filtro",
   "databases.noDataEmpty": "Sin bases de datos cargadas aún.",
   "databases.noDataHint": "Usá \"Actualizar Bases de Datos\" para obtener todas las bases de datos del servidor.",
+  "databases.noMatches": "Ninguna base de datos coincide con los filtros actuales.",
   "databases.loading": "Cargando bases de datos...",
   "databases.selectAll": "Seleccionar Todo",
   "databases.deselectAll": "Deseleccionar Todo",
   "databases.selectFiltered": "Seleccionar filtradas ({count})",
   "databases.deselectFiltered": "Deseleccionar filtradas ({count})",
+  "databases.showSelectedOnly": "Solo seleccionadas",
+  "databases.showAllDatabases": "Mostrar todas",
+  "databases.invertVisible": "Invertir visibles",
   "databases.selectedCount": "{selected} / {total} seleccionadas",
+  "databases.visibleCount": "{visible} visibles",
+  "databases.databaseName": "Nombre de la base",
+  "databases.lastMaintenance": "Último mantenimiento",
+  "databases.neverMaintained": "Nunca",
   "databases.noProfile": "Sin perfil seleccionado. Andá a Perfiles y hacé clic en \"Conectar y Seleccionar Bases de Datos\".",
 
   // Start button states
@@ -538,6 +580,7 @@ const esAR: Translations = {
 
   // Status bar
   "databases.statusSelected": "{selected} seleccionadas / {total} bases de datos totales",
+  "databases.estimatedDuration": "Duración estimada",
 
   // Options panel
   "options.title": "Configuración del Perfil",
@@ -553,6 +596,19 @@ const esAR: Translations = {
   "options.maxAttempts": "Intentos máximos",
   "options.baseDelay": "Demora base (ms)",
   "options.maxDelay": "Demora máxima (ms)",
+  "options.runSettings": "Configuración de ejecución",
+  "options.tabMaintenance": "Mantenimiento",
+  "options.tabConnection": "Conexión",
+  "options.tabRetry": "Reintentos",
+  "options.reorganizeThresholdDesc": "Nivel de fragmentación para reorganizar",
+  "options.rebuildThresholdDesc": "Nivel de fragmentación para reconstruir",
+  "options.rebuildOnlineShort": "Reconstrucción online",
+  "options.freeProcCacheShort": "DBCC FREEPROCCACHE",
+  "options.maxParallelDatabasesDesc": "Máximo de bases procesadas simultáneamente",
+  "options.otherSettings": "Otros ajustes",
+  "options.otherSettingsSummary": "Conexión {connection} · Solicitud {request} · Reintentos {attempts}×",
+  "options.noLimit": "sin límite",
+  "options.edit": "Editar",
 
   // Maintenance dashboard
   "dashboard.title": "Panel de Mantenimiento",
@@ -573,6 +629,16 @@ const esAR: Translations = {
   "dashboard.completedHint": "Bases de datos ya procesadas en esta ejecución.",
   "dashboard.failedWork": "Requiere Atención",
   "dashboard.failedHint": "Bases de datos que reportaron errores durante esta ejecución.",
+  "dashboard.focusLabel": "Vista",
+  "dashboard.focusHint": "Mostrá bases activas, en cola, fallidas o completadas.",
+  "dashboard.focusAll": "Todo",
+  "dashboard.focusActive": "Activo",
+  "dashboard.focusQueued": "En cola",
+  "dashboard.focusFailed": "Requiere atención",
+  "dashboard.focusCompleted": "Completadas",
+  "dashboard.focusEmpty": "No hay bases de datos en esta vista.",
+  "dashboard.failureNotice": "{count} base(s) de datos requieren atención.",
+  "dashboard.reviewFailures": "Revisar fallas",
   "dashboard.waitingForActiveDb": "Esperando que inicie la primera base de datos...",
   "dashboard.discoveringIndexes": "Buscando índices fragmentados...",
   "dashboard.indexProgress": "{current} / {total} índices procesados",

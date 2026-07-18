@@ -1,4 +1,5 @@
-import { Settings } from "lucide-react";
+import { Pencil, Settings } from "lucide-react";
+import { useState } from "react";
 import { useT } from "../../i18n";
 import type { MaintenanceOptions } from "../../types";
 
@@ -9,6 +10,8 @@ interface Props {
     value: MaintenanceOptions[K]
   ) => void;
 }
+
+type OptionsTab = "maintenance" | "connection" | "retry";
 
 export function OptionsPanel({ settings, onChange }: Props) {
   const t = useT();
@@ -122,6 +125,177 @@ export function OptionsPanel({ settings, onChange }: Props) {
   );
 }
 
+export function OptionsInspector({ settings, onChange }: Props) {
+  const t = useT();
+  const [activeTab, setActiveTab] = useState<OptionsTab>("maintenance");
+  const set = <K extends keyof MaintenanceOptions>(key: K, value: MaintenanceOptions[K]) =>
+    onChange(key, value);
+
+  const tabs: Array<{ id: OptionsTab; label: string }> = [
+    { id: "maintenance", label: t("options.tabMaintenance") },
+    { id: "connection", label: t("options.tabConnection") },
+    { id: "retry", label: t("options.tabRetry") },
+  ];
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+        {t("options.runSettings")}
+      </h3>
+
+      <div
+        className="mt-3 grid grid-cols-3 overflow-hidden rounded-lg border border-gray-300 dark:border-gray-700"
+        role="tablist"
+        aria-label={t("options.runSettings")}
+      >
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`border-r border-gray-300 px-2 py-2 text-xs font-medium transition-colors last:border-r-0 dark:border-gray-700 ${
+              activeTab === tab.id
+                ? "bg-blue-50 text-blue-700 dark:bg-blue-600/20 dark:text-blue-300"
+                : "bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div
+        className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1"
+        role="tabpanel"
+        aria-label={tabs.find((tab) => tab.id === activeTab)?.label}
+      >
+        {activeTab === "maintenance" && (
+          <div className="space-y-0">
+            <InspectorNumberOption
+              label={t("options.reorganizeThreshold")}
+              description={t("options.reorganizeThresholdDesc")}
+              value={settings.reorganize_threshold}
+              suffix="%"
+              min={1}
+              max={99}
+              onChange={(value) => set("reorganize_threshold", value)}
+            />
+            <InspectorNumberOption
+              label={t("options.rebuildThreshold")}
+              description={t("options.rebuildThresholdDesc")}
+              value={settings.rebuild_threshold}
+              suffix="%"
+              min={1}
+              max={99}
+              onChange={(value) => set("rebuild_threshold", value)}
+            />
+            {settings.rebuild_threshold < settings.reorganize_threshold && (
+              <p className="border-b border-gray-200 py-3 text-xs text-amber-600 dark:border-gray-800 dark:text-amber-500">
+                {t("options.thresholdHint")}
+              </p>
+            )}
+            <InspectorSwitchOption
+              label={t("options.rebuildOnlineShort")}
+              description={t("options.rebuildOnlineDesc")}
+              checked={settings.rebuild_online}
+              onChange={(value) => set("rebuild_online", value)}
+            />
+            <InspectorSwitchOption
+              label={t("options.freeProcCacheShort")}
+              description={t("options.freeProcCacheDesc")}
+              checked={settings.free_proc_cache}
+              onChange={(value) => set("free_proc_cache", value)}
+            />
+            <InspectorSwitchOption
+              label={t("options.parallel")}
+              description={t("options.parallelDatabasesDesc")}
+              checked={settings.parallel_databases}
+              onChange={(value) => set("parallel_databases", value)}
+            />
+            {settings.parallel_databases && (
+              <InspectorNumberOption
+                label={t("options.maxParallelDatabases")}
+                description={t("options.maxParallelDatabasesDesc")}
+                value={settings.max_parallel_databases}
+                min={1}
+                max={16}
+                onChange={(value) => set("max_parallel_databases", value)}
+              />
+            )}
+
+            <div className="pt-5">
+              <p className="text-2xs font-medium uppercase tracking-wider text-gray-500">
+                {t("options.otherSettings")}
+              </p>
+              <div className="mt-2 flex items-center gap-3">
+                <p className="min-w-0 flex-1 text-xs leading-5 text-gray-500 dark:text-gray-500">
+                  {t("options.otherSettingsSummary", {
+                    connection: formatCompactDuration(settings.connection_timeout_ms, t("options.noLimit")),
+                    request: formatCompactDuration(settings.request_timeout_ms, t("options.noLimit")),
+                    attempts: settings.retry_max_attempts,
+                  })}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("connection")}
+                  className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-md border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  <Pencil size={12} />
+                  {t("options.edit")}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "connection" && (
+          <div>
+            <InspectorNumberOption
+              label={t("options.connectionTimeout")}
+              description={t("options.noTimeout")}
+              value={settings.connection_timeout_ms}
+              suffix="ms"
+              onChange={(value) => set("connection_timeout_ms", value)}
+            />
+            <InspectorNumberOption
+              label={t("options.requestTimeout")}
+              description={t("options.noTimeout")}
+              value={settings.request_timeout_ms}
+              suffix="ms"
+              onChange={(value) => set("request_timeout_ms", value)}
+            />
+          </div>
+        )}
+
+        {activeTab === "retry" && (
+          <div>
+            <InspectorNumberOption
+              label={t("options.maxAttempts")}
+              value={settings.retry_max_attempts}
+              min={1}
+              onChange={(value) => set("retry_max_attempts", value)}
+            />
+            <InspectorNumberOption
+              label={t("options.baseDelay")}
+              value={settings.retry_base_delay_ms}
+              suffix="ms"
+              onChange={(value) => set("retry_base_delay_ms", value)}
+            />
+            <InspectorNumberOption
+              label={t("options.maxDelay")}
+              value={settings.retry_max_delay_ms}
+              suffix="ms"
+              onChange={(value) => set("retry_max_delay_ms", value)}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function OptionsSummaryLine({ settings }: { settings: MaintenanceOptions }) {
   const t = useT();
   const parts = [
@@ -206,4 +380,91 @@ function NumberOption({
       />
     </div>
   );
+}
+
+function InspectorSwitchOption({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-4 border-b border-gray-200 py-4 dark:border-gray-800">
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium text-gray-800 dark:text-gray-200">{label}</span>
+        <span className="mt-0.5 block text-xs leading-4 text-gray-500">{description}</span>
+      </span>
+      <span className="relative inline-flex h-6 w-11 flex-shrink-0 items-center">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => onChange(event.target.checked)}
+          className="peer sr-only"
+        />
+        <span className="absolute inset-0 rounded-full bg-gray-300 transition-colors peer-checked:bg-blue-600 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-2 dark:bg-gray-700 dark:peer-focus-visible:ring-offset-gray-900" />
+        <span className="relative ml-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
+      </span>
+    </label>
+  );
+}
+
+function InspectorNumberOption({
+  label,
+  description,
+  value,
+  onChange,
+  suffix,
+  min = 0,
+  max,
+}: {
+  label: string;
+  description?: string;
+  value: number;
+  onChange: (value: number) => void;
+  suffix?: string;
+  min?: number;
+  max?: number;
+}) {
+  const clamp = (nextValue: number) => {
+    const withMin = Math.max(nextValue, min);
+    return max != null ? Math.min(withMin, max) : withMin;
+  };
+
+  return (
+    <div className="flex items-center gap-4 border-b border-gray-200 py-4 dark:border-gray-800">
+      <div className="min-w-0 flex-1">
+        <label className="text-sm font-medium text-gray-800 dark:text-gray-200">{label}</label>
+        {description && <p className="mt-0.5 text-xs leading-4 text-gray-500">{description}</p>}
+      </div>
+      <div className="relative flex-shrink-0">
+        <input
+          type="number"
+          aria-label={label}
+          value={value}
+          min={min}
+          max={max}
+          onChange={(event) => onChange(clamp(Number(event.target.value) || 0))}
+          className={`w-24 rounded-lg border border-gray-300 bg-white py-1.5 pl-2 text-right text-sm tabular-nums text-gray-900 focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white ${
+            suffix ? "pr-8" : "pr-2"
+          }`}
+        />
+        {suffix && (
+          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500">
+            {suffix}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function formatCompactDuration(valueMs: number, noLimitLabel: string): string {
+  if (valueMs === 0) return noLimitLabel;
+  if (valueMs >= 1000 && valueMs % 1000 === 0) return `${valueMs / 1000}s`;
+  return `${valueMs}ms`;
 }

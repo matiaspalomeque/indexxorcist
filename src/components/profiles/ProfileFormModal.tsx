@@ -171,7 +171,7 @@ export function ProfileFormModal(props: Props) {
         aria-modal="true"
         aria-labelledby="profile-form-title"
         tabIndex={-1}
-        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl w-full max-w-xl mx-4 shadow-2xl max-h-[90vh] overflow-y-auto"
+        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl w-full max-w-xl mx-4 shadow-2xl max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800 sticky top-0 bg-white dark:bg-gray-900 z-10">
           <h2 id="profile-form-title" className="font-semibold text-gray-900 dark:text-white">
@@ -191,8 +191,9 @@ export function ProfileFormModal(props: Props) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <form onSubmit={handleSubmit} className="min-h-0 flex flex-1 flex-col">
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 space-y-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="sm:col-span-2">
               <Field label={t("profileForm.nameLabel")} htmlFor={`${fieldPrefix}-name`}>
                 <input
@@ -213,9 +214,9 @@ export function ProfileFormModal(props: Props) {
                 aria-label={t("profileForm.environmentLabel")}
               />
             </Field>
-          </div>
+            </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="sm:col-span-2">
               <Field label={t("profileForm.serverLabel")} htmlFor={`${fieldPrefix}-server`}>
                 <input
@@ -239,9 +240,9 @@ export function ProfileFormModal(props: Props) {
                 className={INPUT_CLS}
               />
             </Field>
-          </div>
+            </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label={t("profileForm.usernameLabel")} htmlFor={`${fieldPrefix}-username`}>
               <input
                 id={`${fieldPrefix}-username`}
@@ -281,9 +282,9 @@ export function ProfileFormModal(props: Props) {
                 </p>
               )}
             </Field>
-          </div>
+            </div>
 
-          <div className="pt-1">
+            <div className="pt-1">
             <p className="text-xs font-medium text-gray-700 dark:text-gray-400 mb-2">
               {t("profileForm.security")}
             </p>
@@ -305,21 +306,22 @@ export function ProfileFormModal(props: Props) {
                 <span>{t("profileForm.trustCertWarning")}</span>
               </div>
             )}
+            </div>
+
+            <Field label={t("profileForm.connectionPreview")}>
+              <code className="block text-xs font-mono text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg px-3 py-2 break-all">
+                {connStringPreview}
+              </code>
+            </Field>
+
+            {error && (
+              <p role="alert" className="text-sm text-red-500 dark:text-red-400">
+                {error}
+              </p>
+            )}
           </div>
 
-          <Field label={t("profileForm.connectionPreview")}>
-            <code className="block text-xs font-mono text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg px-3 py-2 break-all">
-              {connStringPreview}
-            </code>
-          </Field>
-
-          {error && (
-            <p role="alert" className="text-sm text-red-500 dark:text-red-400">
-              {error}
-            </p>
-          )}
-
-          <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-shrink-0 flex-col gap-3 border-t border-gray-200 px-6 py-3.5 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
               <button
                 type="button"

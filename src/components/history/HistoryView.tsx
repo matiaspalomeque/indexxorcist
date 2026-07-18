@@ -173,7 +173,7 @@ export function HistoryView() {
 
   return (
     <div className="p-4 lg:p-6">
-      <div className="mx-auto max-w-[1800px]">
+      <div className="mx-auto max-w-[1600px]">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             {t("history.title")}
@@ -262,7 +262,7 @@ export function HistoryView() {
           <p className="text-sm text-gray-600 dark:text-gray-500">{t("history.noFilterResults")}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[900px] text-sm">
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-800">
                   <th className="w-8" />

@@ -2,12 +2,18 @@ import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { useState, useEffect } from "react";
 
+function isTauriRuntime(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
 export function useUpdater() {
   const [update, setUpdate] = useState<Update | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
+    if (!isTauriRuntime()) return;
+
     check()
       .then((result) => {
         if (result?.available) setUpdate(result);
@@ -18,7 +24,7 @@ export function useUpdater() {
   }, []);
 
   const install = async () => {
-    if (!update) return;
+    if (!update || !isTauriRuntime()) return;
     setInstalling(true);
     try {
       await update.downloadAndInstall();
