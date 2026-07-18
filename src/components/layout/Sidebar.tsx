@@ -1,4 +1,4 @@
-import { BarChart2, Clock, Home, Moon, Sun, X } from "lucide-react";
+import { BarChart2, Clock, Home, Lock, Moon, Sun, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useT } from "../../i18n";
 import { AboutModal } from "../about/AboutModal";
@@ -19,6 +19,20 @@ function runStateColor(runState: string | undefined): string {
   if (runState === "finished") return "text-green-400";
   if (runState === "stopped") return "text-red-400";
   return "text-gray-500";
+}
+
+function runStateDotColor(runState: string | undefined): string {
+  if (runState === "running") return "bg-blue-500";
+  if (runState === "paused") return "bg-amber-500";
+  if (runState === "finished") return "bg-green-500";
+  if (runState === "stopped") return "bg-red-500";
+  return "bg-gray-400 dark:bg-gray-600";
+}
+
+function profileInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "DB";
+  return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 }
 
 function isTauriRuntime(): boolean {
@@ -57,44 +71,50 @@ export function Sidebar() {
   }, [loadProfiles, profiles.length]);
 
   return (
-    <aside className="w-56 xl:w-64 2xl:w-72 flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col">
-      <div className="p-3 border-b border-gray-200 dark:border-gray-800 space-y-1">
+    <aside className="w-16 lg:w-56 2xl:w-64 flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col">
+      <div className="p-2 lg:p-3 border-b border-gray-200 dark:border-gray-800 space-y-1">
         <button
           onClick={goToProfilesHome}
-          className={`flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+          aria-label={t("sidebar.profilesHome")}
+          title={t("sidebar.profilesHome")}
+          className={`flex items-center justify-center gap-2 w-full px-2 lg:px-3 py-2.5 rounded-lg text-sm font-medium transition-colors lg:justify-start ${
             currentView === "profiles"
               ? "bg-blue-600 text-white"
               : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
           }`}
         >
-          <Home size={15} />
-          {t("sidebar.profilesHome")}
+          <Home size={15} className="flex-shrink-0" />
+          <span className="hidden truncate lg:inline">{t("sidebar.profilesHome")}</span>
         </button>
         <button
           onClick={() => setView("history")}
-          className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+          aria-label={t("sidebar.history")}
+          title={t("sidebar.history")}
+          className={`flex items-center justify-center gap-2 w-full px-2 lg:px-3 py-2 rounded-lg text-sm font-medium transition-colors lg:justify-start ${
             currentView === "history"
               ? "bg-blue-600 text-white"
               : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
           }`}
         >
-          <Clock size={15} />
-          {t("sidebar.history")}
+          <Clock size={15} className="flex-shrink-0" />
+          <span className="hidden truncate lg:inline">{t("sidebar.history")}</span>
         </button>
         <button
           onClick={() => setView("insights")}
-          className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+          aria-label={t("sidebar.insights")}
+          title={t("sidebar.insights")}
+          className={`flex items-center justify-center gap-2 w-full px-2 lg:px-3 py-2 rounded-lg text-sm font-medium transition-colors lg:justify-start ${
             currentView === "insights"
               ? "bg-blue-600 text-white"
               : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
           }`}
         >
-          <BarChart2 size={15} />
-          {t("sidebar.insights")}
+          <BarChart2 size={15} className="flex-shrink-0" />
+          <span className="hidden truncate lg:inline">{t("sidebar.insights")}</span>
         </button>
       </div>
 
-      <div className="flex-1 p-3 min-h-0">
+      <div className="hidden flex-1 p-3 min-h-0 lg:block">
         <p className="text-2xs uppercase tracking-wide text-gray-600 dark:text-gray-500 px-2 mb-2">
           {t("sidebar.connectedTabs")}
         </p>
@@ -150,17 +170,79 @@ export function Sidebar() {
         )}
       </div>
 
-      <div className="p-3 border-t border-gray-200 dark:border-gray-800 space-y-2">
+      <div className="flex-1 min-h-0 px-2 py-3 lg:hidden">
+        <p className="sr-only">{t("sidebar.connectedTabs")}</p>
+        <div className="flex max-h-full flex-col items-center gap-2 overflow-y-auto py-0.5">
+          {connectedProfileIds.map((profileId) => {
+            const profile = profiles.find((candidate) => candidate.id === profileId);
+            const profileName = profile?.name ?? runsByProfile[profileId]?.profileName ?? profileId;
+            const runState = runsByProfile[profileId]?.runState;
+            const runActive = runState ? isActiveRunState(runState) : false;
+            const active = activeProfileId === profileId && currentView !== "profiles";
+
+            return (
+              <div key={profileId} className="group relative">
+                <button
+                  type="button"
+                  onClick={() => setActiveProfileId(profileId)}
+                  aria-label={`${profileName} · ${runStateLabel(runState, t)}`}
+                  title={`${profileName} · ${runStateLabel(runState, t)}`}
+                  className={`relative flex h-10 w-10 items-center justify-center rounded-lg border text-xs font-semibold transition-colors ${
+                    active
+                      ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500/70 dark:bg-blue-600/20 dark:text-blue-200"
+                      : "border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-300 hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-950/50 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  {profileInitials(profileName)}
+                  <span
+                    className={`absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full ring-2 ring-white dark:ring-gray-900 ${runStateDotColor(runState)}`}
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { closeProfileTab(profileId); resetProfile(profileId); }}
+                  disabled={runActive}
+                  aria-label={runActive ? t("sidebar.closeTabDisabled") : t("sidebar.closeTab")}
+                  title={runActive ? t("sidebar.closeTabDisabled") : t("sidebar.closeTab")}
+                  className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-400 shadow-sm hover:text-red-500 disabled:cursor-not-allowed disabled:text-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:disabled:text-gray-700"
+                >
+                  <X size={11} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="p-2 lg:p-3 border-t border-gray-200 dark:border-gray-800 space-y-2">
         {wizardLocked && activeProfileId && (
-          <p className="text-xs text-amber-600 dark:text-amber-500 mb-1">
-            {t("sidebar.wizardLocked")}
-          </p>
+          <>
+            <p className="hidden text-xs text-amber-600 dark:text-amber-500 mb-1 lg:block">
+              {t("sidebar.wizardLocked")}
+            </p>
+            <div
+              className="flex justify-center text-amber-500 lg:hidden"
+              title={t("sidebar.wizardLocked")}
+              aria-label={t("sidebar.wizardLocked")}
+            >
+              <Lock size={14} />
+            </div>
+          </>
         )}
 
         {/* Theme + Language controls */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-col items-center gap-2 lg:flex-row lg:justify-between">
           {/* Language toggle */}
-          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
+          <button
+            type="button"
+            onClick={() => setLang(lang === "en" ? "es-AR" : "en")}
+            aria-label={lang === "en" ? "Cambiar a Español" : "Switch to English"}
+            title={lang === "en" ? "Cambiar a Español" : "Switch to English"}
+            className="rounded-lg bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 lg:hidden"
+          >
+            {lang === "en" ? "EN" : "ES"}
+          </button>
+          <div className="hidden items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5 lg:flex">
             {(["en", "es-AR"] as Lang[]).map((l) => (
               <button
                 key={l}
@@ -188,9 +270,12 @@ export function Sidebar() {
           {/* About / version */}
           <button
             onClick={() => setShowAbout(true)}
+            aria-label={`Indexxorcist v${__APP_VERSION__}`}
+            title={`Indexxorcist v${__APP_VERSION__}`}
             className="text-xs text-gray-400 dark:text-gray-600 hover:text-gray-600 dark:hover:text-gray-400 transition-colors"
           >
-            v{__APP_VERSION__}
+            <span className="hidden lg:inline">v{__APP_VERSION__}</span>
+            <span className="lg:hidden">v</span>
           </button>
         </div>
       </div>

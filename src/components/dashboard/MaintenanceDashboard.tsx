@@ -9,6 +9,7 @@ import { useT } from "../../i18n";
 import * as api from "../../api/tauri";
 import { useMaintenanceStore } from "../../store/maintenanceStore";
 import { useUiStore } from "../../store/uiStore";
+import { computeLiveSummary, computeOverallProgress, computeRunMetrics } from "../../utils/runMetrics";
 import { computeStaggerMs } from "../../utils/stagger";
 import type { DatabaseCardData, IndexDetail } from "../../types";
 import {
@@ -21,6 +22,8 @@ import {
   Search,
   SkipForward,
 } from "lucide-react";
+
+type DashboardFocus = "all" | "active" | "queued" | "failed" | "completed";
 
 export function MaintenanceDashboard() {
   const t = useT();
@@ -35,6 +38,11 @@ export function MaintenanceDashboard() {
   // mid-SQL-operation — inflating doneCount to 100% while the backend is still working
   // is misleading. Queued databases are updated optimistically since they complete instantly.
   const [pendingSkips, setPendingSkips] = useState<Set<string>>(new Set());
+  const [focus, setFocus] = useState<DashboardFocus>("all");
+
+  useEffect(() => {
+    setFocus("all");
+  }, [activeProfileId]);
 
   // Clear stale entries when databases leave "running" state (e.g. backend confirmed the skip).
   const databases = run?.databases;
@@ -89,89 +97,37 @@ export function MaintenanceDashboard() {
   const isParallel = run?.isParallel ?? false;
   const totalDbs = run?.totalDbs ?? 0;
 
-  const runMetrics = useMemo(() => {
-    const empty = {
-      doneCount: 0,
-      runningDbs: [] as DatabaseCardData[],
-      queuedDbs: [] as DatabaseCardData[],
-      completedDbs: [] as DatabaseCardData[],
-      failedDbs: [] as DatabaseCardData[],
-      activeIndexesProcessed: 0,
-      activeIndexesTotal: 0,
-      totalIndexesRebuilt: 0,
-      totalIndexesReorganized: 0,
-      totalIndexesSkipped: 0,
-    };
-    if (!databases) return empty;
-    let done = 0;
-    let activeIndexesProcessed = 0;
-    let activeIndexesTotal = 0;
-    let totalIndexesRebuilt = 0;
-    let totalIndexesReorganized = 0;
-    let totalIndexesSkipped = 0;
-    const running: DatabaseCardData[] = [];
-    const queued: DatabaseCardData[] = [];
-    const completed: DatabaseCardData[] = [];
-    const failed: DatabaseCardData[] = [];
-    for (const db of databases) {
-      totalIndexesRebuilt += db.indexes_rebuilt;
-      totalIndexesReorganized += db.indexes_reorganized;
-      totalIndexesSkipped += db.indexes_skipped;
-      if (db.state === "done" || db.state === "error" || db.state === "skipped" || db.state === "stopped") {
-        done++;
-      }
-      if (db.state === "running") {
-        running.push(db);
-        activeIndexesProcessed += Math.min(db.indexes_processed, db.indexes.length);
-        activeIndexesTotal += db.indexes.length;
-      } else if (db.state === "queued") {
-        queued.push(db);
-      } else if (db.state === "error") {
-        failed.push(db);
-      } else {
-        completed.push(db);
-      }
-    }
-    return {
-      doneCount: done,
-      runningDbs: running,
-      queuedDbs: queued,
-      completedDbs: completed,
-      failedDbs: failed,
-      activeIndexesProcessed,
-      activeIndexesTotal,
-      totalIndexesRebuilt,
-      totalIndexesReorganized,
-      totalIndexesSkipped,
-    };
-  }, [databases]);
+  const runMetrics = useMemo(() => computeRunMetrics(databases), [databases]);
 
   const overallCurrent = useMemo(() => {
-    const dbProgress = (db: { indexes: unknown[]; indexes_processed: number }) =>
-      db.indexes.length === 0 ? 0 : Math.min(db.indexes_processed / db.indexes.length, 1);
-    const runningProgress = isParallel
-      ? runMetrics.runningDbs.reduce((sum, db) => sum + dbProgress(db), 0)
-      : dbProgress(runMetrics.runningDbs[0] ?? { indexes: [], indexes_processed: 0 });
-    return Math.min(runMetrics.doneCount + runningProgress, totalDbs);
-  }, [runMetrics.doneCount, runMetrics.runningDbs, isParallel, totalDbs]);
+    return computeOverallProgress(runMetrics, totalDbs, isParallel);
+  }, [runMetrics, isParallel, totalDbs]);
 
   const staggerMs = useMemo(
     () => computeStaggerMs(databases?.length ?? 0),
     [databases?.length],
   );
 
-  const liveSummary = useMemo(() => ({
-    rebuilt: run?.summary?.total_indexes_rebuilt ?? runMetrics.totalIndexesRebuilt,
-    reorganized: run?.summary?.total_indexes_reorganized ?? runMetrics.totalIndexesReorganized,
-    skipped: run?.summary?.total_indexes_skipped ?? runMetrics.totalIndexesSkipped,
-    failedDbs: run?.summary?.databases_failed ?? runMetrics.failedDbs.length,
-  }), [
-    run?.summary,
-    runMetrics.failedDbs.length,
-    runMetrics.totalIndexesRebuilt,
-    runMetrics.totalIndexesReorganized,
-    runMetrics.totalIndexesSkipped,
-  ]);
+  const liveSummary = useMemo(
+    () => computeLiveSummary(run?.summary, runMetrics),
+    [run?.summary, runMetrics],
+  );
+
+  const focusedDatabases = useMemo(() => {
+    if (!run) return [];
+    switch (focus) {
+      case "active":
+        return runMetrics.runningDbs;
+      case "queued":
+        return runMetrics.queuedDbs;
+      case "failed":
+        return runMetrics.failedDbs;
+      case "completed":
+        return runMetrics.completedDbs;
+      default:
+        return run.databases;
+    }
+  }, [focus, run, runMetrics]);
 
   if (!activeProfileId) {
     return (
@@ -226,7 +182,7 @@ export function MaintenanceDashboard() {
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 lg:p-6 pb-32">
-          <div className="mx-auto max-w-[1800px] space-y-5">
+          <div className="mx-auto max-w-[1600px] space-y-5">
             {/* Stats Cards */}
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
               <StatCard label={t("dashboard.rebuilt")} value={liveSummary.rebuilt} color="text-blue-600 dark:text-blue-400" />
@@ -234,6 +190,27 @@ export function MaintenanceDashboard() {
               <StatCard label={t("dashboard.skipped")} value={liveSummary.skipped} color="text-gray-700 dark:text-gray-300" />
               <StatCard label={t("dashboard.failedDbs")} value={liveSummary.failedDbs} color="text-red-600 dark:text-red-400" />
             </div>
+
+            {run.databases.length > 0 && (
+              <DashboardFocusTabs
+                focus={focus}
+                onFocusChange={setFocus}
+                counts={{
+                  all: run.databases.length,
+                  active: runMetrics.runningDbs.length,
+                  queued: runMetrics.queuedDbs.length,
+                  failed: runMetrics.failedDbs.length,
+                  completed: runMetrics.completedDbs.length,
+                }}
+              />
+            )}
+
+            {runMetrics.failedDbs.length > 0 && (
+              <FailureNotice
+                count={runMetrics.failedDbs.length}
+                onReview={() => setFocus("failed")}
+              />
+            )}
 
             {/* Database Grid */}
             {run.databases.length === 0 ? (
@@ -252,7 +229,11 @@ export function MaintenanceDashboard() {
             ) : (
               run.runState === "running" || run.runState === "paused" ? (
                 <div className="space-y-6">
-                  {runMetrics.runningDbs.length > 0 ? (
+                  {focus !== "all" && focusedDatabases.length === 0 && (
+                    <FocusedEmptyState />
+                  )}
+
+                  {(focus === "all" || focus === "active") && runMetrics.runningDbs.length > 0 ? (
                     <DatabaseSection
                       title={t("dashboard.activeWork")}
                       count={runMetrics.runningDbs.length}
@@ -269,13 +250,13 @@ export function MaintenanceDashboard() {
                         ))}
                       </div>
                     </DatabaseSection>
-                  ) : (
+                  ) : focus === "all" ? (
                     <div className="rounded-lg border border-dashed border-gray-300 bg-white p-5 text-sm text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
                       {t("dashboard.waitingForActiveDb")}
                     </div>
-                  )}
+                  ) : null}
 
-                  {runMetrics.queuedDbs.length > 0 && (
+                  {(focus === "all" || focus === "queued") && runMetrics.queuedDbs.length > 0 && (
                     <DatabaseSection
                       title={t("dashboard.queuedWork")}
                       count={runMetrics.queuedDbs.length}
@@ -295,7 +276,7 @@ export function MaintenanceDashboard() {
                     </DatabaseSection>
                   )}
 
-                  {runMetrics.failedDbs.length > 0 && (
+                  {(focus === "all" || focus === "failed") && runMetrics.failedDbs.length > 0 && (
                     <DatabaseSection
                       title={t("dashboard.failedWork")}
                       count={runMetrics.failedDbs.length}
@@ -313,7 +294,7 @@ export function MaintenanceDashboard() {
                     </DatabaseSection>
                   )}
 
-                  {runMetrics.completedDbs.length > 0 && (
+                  {(focus === "all" || focus === "completed") && runMetrics.completedDbs.length > 0 && (
                     <DatabaseSection
                       title={t("dashboard.completedWork")}
                       count={runMetrics.completedDbs.length}
@@ -330,17 +311,22 @@ export function MaintenanceDashboard() {
                       </DatabaseCardGrid>
                     </DatabaseSection>
                   )}
+
                 </div>
               ) : (
-                <DatabaseCardGrid>
-                  {run.databases.map((db, idx) => (
-                    <DatabaseCard
-                      key={`${run.profileId}:${db.name}`}
-                      db={db}
-                      delay={Math.round(idx * staggerMs)}
-                    />
-                  ))}
-                </DatabaseCardGrid>
+                focusedDatabases.length > 0 ? (
+                  <DatabaseCardGrid>
+                    {focusedDatabases.map((db, idx) => (
+                      <DatabaseCard
+                        key={`${run.profileId}:${focus}:${db.name}`}
+                        db={db}
+                        delay={Math.round(idx * staggerMs)}
+                      />
+                    ))}
+                  </DatabaseCardGrid>
+                ) : (
+                  <FocusedEmptyState />
+                )
               )
             )}
           </div>
@@ -350,7 +336,7 @@ export function MaintenanceDashboard() {
       {/* Sticky Footer Controls */}
       <div className="sticky bottom-0 z-30 border-t border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl shadow-2xl">
         <div className="px-4 lg:px-6 py-3">
-          <div className="mx-auto max-w-[1800px] flex items-center justify-between gap-3">
+          <div className="mx-auto max-w-[1600px] flex items-center justify-between gap-3">
             <RunControls profileId={run.profileId} />
             {(run.runState === "finished" || run.runState === "stopped") && run.summary && (
               <button
@@ -371,6 +357,91 @@ function DatabaseCardGrid({ children }: { children: ReactNode }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 auto-rows-fr">
       {children}
+    </div>
+  );
+}
+
+function DashboardFocusTabs({
+  focus,
+  onFocusChange,
+  counts,
+}: {
+  focus: DashboardFocus;
+  onFocusChange: (focus: DashboardFocus) => void;
+  counts: Record<DashboardFocus, number>;
+}) {
+  const t = useT();
+  const filters: Array<{ id: DashboardFocus; label: string }> = [
+    { id: "all", label: t("dashboard.focusAll") },
+    { id: "active", label: t("dashboard.focusActive") },
+    { id: "queued", label: t("dashboard.focusQueued") },
+    { id: "failed", label: t("dashboard.focusFailed") },
+    { id: "completed", label: t("dashboard.focusCompleted") },
+  ];
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500">
+          {t("dashboard.focusLabel")}
+        </p>
+        <p className="text-xs text-gray-600 dark:text-gray-400">
+          {t("dashboard.focusHint")}
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("dashboard.focusLabel")}>
+        {filters.map((item) => {
+          const active = focus === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onFocusChange(item.id)}
+              aria-pressed={active}
+              className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                active
+                  ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950/50 dark:text-blue-300"
+                  : "border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-300 hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:bg-gray-800"
+              }`}
+            >
+              {item.label}
+              <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                {counts[item.id]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function FailureNotice({ count, onReview }: { count: number; onReview: () => void }) {
+  const t = useT();
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 shadow-sm dark:border-red-900/70 dark:bg-red-950/20 dark:text-red-200 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-start gap-2">
+        <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+        <p className="font-medium">
+          {t("dashboard.failureNotice", { count })}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onReview}
+        className="self-start rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-200 dark:hover:bg-red-900/50 sm:self-auto"
+      >
+        {t("dashboard.reviewFailures")}
+      </button>
+    </div>
+  );
+}
+
+function FocusedEmptyState() {
+  const t = useT();
+  return (
+    <div className="rounded-lg border border-dashed border-gray-300 bg-white p-5 text-sm text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
+      {t("dashboard.focusEmpty")}
     </div>
   );
 }

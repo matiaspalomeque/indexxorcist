@@ -244,40 +244,41 @@ export function InsightsView() {
   const multiServer = !selectedServer;
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t("insights.title")}</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t("insights.subtitle")}</p>
-        </div>
-        {servers.length > 1 && (
-          <div className="flex items-center gap-2 flex-shrink-0 mt-1">
-            <span className="text-xs text-gray-500 dark:text-gray-400">{t("insights.filterServer")}</span>
-            <Select
-              value={selectedServer}
-              options={[
-                { value: "", label: t("insights.filterAllServers") },
-                ...servers.map(s => ({ value: s, label: s })),
-              ]}
-              onChange={setSelectedServer}
-              aria-label={t("insights.filterServer")}
-              align="right"
-            />
+    <div className="p-4 lg:p-6">
+      <div className="mx-auto max-w-[1600px] space-y-5 lg:space-y-6">
+        {/* Header */}
+        <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:gap-4">
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t("insights.title")}</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t("insights.subtitle")}</p>
           </div>
-        )}
-      </div>
+          {servers.length > 1 && (
+            <div className="flex items-center gap-2 flex-shrink-0 sm:mt-1">
+              <span className="text-xs text-gray-500 dark:text-gray-400">{t("insights.filterServer")}</span>
+              <Select
+                value={selectedServer}
+                options={[
+                  { value: "", label: t("insights.filterAllServers") },
+                  ...servers.map(s => ({ value: s, label: s })),
+                ]}
+                onChange={setSelectedServer}
+                aria-label={t("insights.filterServer")}
+                align="right"
+              />
+            </div>
+          )}
+        </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <StatCard icon={<Activity size={16} />} label={t("insights.statRuns")} value={String(totalRuns)} />
-        <StatCard icon={<Zap size={16} />} label={t("insights.statFixed")} value={String(totalFixed)} />
-        <StatCard icon={<Clock size={16} />} label={t("insights.statAvgDuration")} value={formatDuration(avgDuration)} />
-      </div>
+        {/* Stat cards */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:gap-4">
+          <StatCard icon={<Activity size={16} />} label={t("insights.statRuns")} value={String(totalRuns)} />
+          <StatCard icon={<Zap size={16} />} label={t("insights.statFixed")} value={String(totalFixed)} />
+          <StatCard icon={<Clock size={16} />} label={t("insights.statAvgDuration")} value={formatDuration(avgDuration)} />
+        </div>
 
-      {/* Maintenance calendar */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
-        <div className="flex items-start justify-between mb-5">
+        {/* Maintenance calendar */}
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+          <div className="flex flex-col items-start justify-between gap-3 mb-5 sm:flex-row">
           <div>
             <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{t("insights.calendarTitle")}</h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t("insights.calendarSubtitle")}</p>
@@ -293,10 +294,10 @@ export function InsightsView() {
             </div>
             <span>{t("insights.legendHigh")}</span>
           </div>
-        </div>
+          </div>
 
-        <div className="overflow-x-auto">
-          <div style={{ minWidth: "fit-content" }}>
+          <div className="overflow-x-auto">
+            <div style={{ minWidth: "fit-content" }}>
             {/* Month labels */}
             <div className="flex mb-1" style={{ marginLeft: "18px", gap: "2px" }}>
               {weeks.map((_, wi) => {
@@ -336,14 +337,14 @@ export function InsightsView() {
                 </div>
               ))}
             </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Bottom two-column section */}
-      <div className="grid grid-cols-2 gap-6">
-        {/* Chronic Offenders */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+        {/* Bottom two-column section */}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 lg:gap-6">
+          {/* Chronic Offenders */}
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
           <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{t("insights.offendersTitle")}</h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-4">{t("insights.offendersSubtitle")}</p>
 
@@ -377,10 +378,10 @@ export function InsightsView() {
               ))}
             </div>
           )}
-        </div>
+          </div>
 
-        {/* Database Activity */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+          {/* Database Activity */}
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
           <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{t("insights.dbTitle")}</h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-4">{t("insights.dbSubtitle")}</p>
 
@@ -408,6 +409,7 @@ export function InsightsView() {
               ))}
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>

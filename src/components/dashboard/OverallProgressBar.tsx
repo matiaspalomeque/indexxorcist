@@ -67,7 +67,7 @@ export const OverallProgressBar = memo(function OverallProgressBar({
   return (
     <div className="sticky top-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 shadow-sm">
       <div className="px-4 lg:px-6 py-4">
-        <div className="mx-auto max-w-[1800px]">
+        <div className="mx-auto max-w-[1600px]">
           {/* Top row: Profile info + Status */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3 min-w-0 flex-1">

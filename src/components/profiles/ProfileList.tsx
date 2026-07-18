@@ -626,8 +626,8 @@ export function ProfileList() {
 
   return (
     <div className="p-4 lg:p-6">
-      <div className="mx-auto max-w-[1700px]">
-        <div className="flex flex-col gap-3 mb-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="mx-auto max-w-[1600px]">
+        <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-base font-semibold text-gray-900 dark:text-white">
               {t("profiles.title")}
